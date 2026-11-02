@@ -11,13 +11,68 @@ import hashlib
 import json
 import logging
 import math
+import re
 import sqlite3
+from collections import Counter
 from pathlib import Path
 from typing import Any, Optional, Sequence
 
 from contracts import Chunk, IndexingSummary
 
 logger = logging.getLogger("valence.vector_store")
+
+_STOPWORDS = {
+    "a", "about", "above", "after", "again", "against", "all", "am", "an", "and", "any", "are",
+    "aren't", "as", "at", "be", "because", "been", "before", "being", "below", "between", "both",
+    "but", "by", "can", "cannot", "could", "did", "do", "does", "doing", "down", "during", "each",
+    "few", "for", "from", "further", "had", "has", "have", "having", "he", "her", "here", "hers",
+    "herself", "him", "himself", "his", "how", "i", "if", "in", "into", "is", "it", "its", "itself",
+    "let's", "me", "more", "most", "my", "myself", "no", "nor", "not", "of", "off", "on", "once",
+    "only", "or", "other", "ought", "our", "ours", "ourselves", "out", "over", "own", "same", "she",
+    "should", "so", "some", "such", "than", "that", "the", "their", "theirs", "them", "themselves",
+    "then", "there", "these", "they", "this", "those", "through", "to", "too", "under", "until", "up",
+    "very", "was", "we", "were", "what", "when", "where", "which", "while", "who", "whom", "why",
+    "with", "would", "you", "your", "yours", "yourself", "yourselves",
+    "often", "check", "please", "tell",
+}
+
+
+def _content_tokens(text: str) -> set[str]:
+    return {t for t in re.findall(r"\w+", text.lower()) if t not in _STOPWORDS and len(t) > 2}
+
+
+def _bm25_score(
+    query_text: str,
+    doc_text: str,
+    doc_freqs: dict[str, int],
+    total_docs: int,
+) -> float:
+    """Computes BM25 term frequency saturation score with exact phrase matching boost."""
+    q_tokens = _content_tokens(query_text)
+    if not q_tokens:
+        return 0.0
+
+    doc_words = [t for t in re.findall(r"\w+", doc_text.lower()) if t not in _STOPWORDS and len(t) > 2]
+    doc_counts = Counter(doc_words)
+    score = 0.0
+
+    for t in q_tokens:
+        if t in doc_counts:
+            tf = doc_counts[t]
+            df = doc_freqs.get(t, 1)
+            idf = math.log((total_docs + 1) / (df + 1)) + 1.0
+            score += (tf / (tf + 1.2)) * idf
+
+    # Exact bigram phrase match bonus (e.g. "solid yellow", "run stop")
+    clean_q = re.sub(r"[^\w\s]", " ", query_text.lower())
+    q_words = [w for w in clean_q.split() if w not in _STOPWORDS and len(w) > 2]
+    doc_lower = doc_text.lower()
+    for i in range(len(q_words) - 1):
+        phrase = f"{q_words[i]} {q_words[i+1]}"
+        if phrase in doc_lower:
+            score += 5.0
+
+    return score
 
 
 def _compute_chunk_hash(chunk: Chunk) -> str:
@@ -217,6 +272,7 @@ class PersistentVectorStore:
         query_vector: list[float],
         top_k: int = 5,
         equipment_model: Optional[str] = None,
+        query_text: Optional[str] = None,
     ) -> list[tuple[float, Chunk]]:
         """Searches persistent storage for most similar chunks, respecting equipment_model filter."""
         # Query local SQLite persistent records
@@ -239,6 +295,15 @@ class PersistentVectorStore:
         if not rows:
             return []
 
+        # Precompute document frequencies if query_text is provided
+        doc_freqs: dict[str, int] = {}
+        total_docs = len(rows)
+        if query_text:
+            for r in rows:
+                tokens = _content_tokens(r[4])
+                for t in tokens:
+                    doc_freqs[t] = doc_freqs.get(t, 0) + 1
+
         scored_chunks: list[tuple[float, Chunk]] = []
         for r in rows:
             chunk = Chunk(
@@ -251,8 +316,13 @@ class PersistentVectorStore:
                 synthetic=bool(r[6]),
             )
             vec = json.loads(r[7])
-            score = _cosine_similarity(query_vector, vec)
-            scored_chunks.append((score, chunk))
+            cos_score = _cosine_similarity(query_vector, vec)
+            if query_text:
+                bm_score = _bm25_score(query_text, chunk.text, doc_freqs, total_docs)
+                final_score = cos_score + bm_score
+            else:
+                final_score = cos_score
+            scored_chunks.append((final_score, chunk))
 
         # Sort descending by similarity score, then deterministically by chunk_id
         scored_chunks.sort(key=lambda item: (-item[0], item[1].chunk_id))

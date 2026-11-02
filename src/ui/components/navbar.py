@@ -46,20 +46,26 @@ def render_navbar() -> str:
         )
 
     with cols[2]:
-        use_mock = st.session_state.get("use_mock", True)
-        if use_mock:
-            pill_html = """
-            <span style="background:rgba(245,158,11,0.15); color:#fbbf24; border:1px solid rgba(245,158,11,0.3); padding:0.25rem 0.6rem; border-radius:9999px; font-size:0.8rem; font-weight:600;">
-                🔶 Dev Mock (Testing)
-            </span>
-            """
+        use_mock = st.session_state.get("use_mock", False)
+        if hasattr(st, "toggle"):
+            new_mock = st.toggle(
+                "🔶 Mock Mode" if use_mock else "🟢 Live Engine",
+                value=use_mock,
+                key="navbar_mock_toggle",
+                help="Switch between Live Local Ollama (qwen2.5:latest) and Dev Mock simulation.",
+            )
         else:
-            pill_html = """
-            <span style="background:rgba(16,185,129,0.15); color:#34d399; border:1px solid rgba(16,185,129,0.3); padding:0.25rem 0.6rem; border-radius:9999px; font-size:0.8rem; font-weight:600;">
-                🟢 Live Engine
-            </span>
-            """
-        st.markdown(f"<div style='padding-top:0.35rem;'>{pill_html}</div>", unsafe_allow_html=True)
+            new_mock = st.checkbox(
+                "🔶 Mock Mode" if use_mock else "🟢 Live Engine",
+                value=use_mock,
+                key="navbar_mock_toggle",
+                help="Switch between Live Local Ollama (qwen2.5:latest) and Dev Mock simulation.",
+            )
+        if new_mock != use_mock:
+            st.session_state["use_mock"] = new_mock
+            st.session_state["backend"] = None
+            st.session_state["incident_service"] = None
+            st.rerun()
 
     with cols[3]:
         # Universal backward-compatible view toggle between Classic and Modern

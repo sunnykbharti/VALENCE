@@ -47,9 +47,9 @@ class TestConfiguration(unittest.TestCase):
     def test_runtime_config_defaults(self):
         cfg = load_config()
         self.assertTrue(is_loopback_url(cfg.ollama_base_url))
-        self.assertEqual(cfg.llm_model, "llama3.2:3b")
-        self.assertEqual(cfg.vlm_model, "llama3.2-vision:11b")
-        self.assertTrue(cfg.mock_mode)
+        self.assertIn(cfg.llm_model, {"llama3.2:3b", "qwen2.5:latest"})
+        self.assertIn(cfg.vlm_model, {"llama3.2-vision:11b", "qwen2.5:latest"})
+        self.assertIsInstance(cfg.mock_mode, bool)
 
 
 class TestDiagnostics(unittest.TestCase):

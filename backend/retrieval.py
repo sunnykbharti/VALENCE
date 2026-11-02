@@ -49,6 +49,7 @@ class LocalRetriever(RetrievalProtocol):
             query_vector=query_vec,
             top_k=top_k,
             equipment_model=equipment_model,
+            query_text=question.strip(),
         )
 
         evidence_list: list[Evidence] = []

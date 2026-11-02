@@ -67,6 +67,15 @@ class RuntimeConfig:
 
 def load_config() -> RuntimeConfig:
     """Loads runtime configuration from environment variables or safe defaults."""
+    # Load .env file if present
+    env_file = Path(".env")
+    if env_file.exists():
+        for line in env_file.read_text().splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, v = line.split("=", 1)
+                os.environ[k.strip()] = v.strip()
+
     ollama_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
     llm_model = os.getenv("OLLAMA_LLM_MODEL", "llama3.2:3b")
     vlm_model = os.getenv("OLLAMA_VLM_MODEL", "llama3.2-vision:11b")

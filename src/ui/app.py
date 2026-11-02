@@ -34,15 +34,26 @@ def main() -> None:
     init_session_state()
     apply_theme()
 
-    # Re-initialize backend if mode toggled or uninitialized
+    # Re-initialize backend & incident service if mode toggled or uninitialized
     use_mock = st.session_state.get("use_mock", True)
-    if st.session_state.backend is None:
+    if st.session_state.get("backend") is None or st.session_state.get("backend_is_mock") != use_mock:
         backend_inst, err = get_or_create_backend(use_mock=use_mock)
-        st.session_state.backend = backend_inst
-        st.session_state.backend_error = err
+        st.session_state["backend"] = backend_inst
+        st.session_state["backend_is_mock"] = use_mock
+        st.session_state["backend_error"] = err
+        if backend_inst is not None and st.session_state.get("cached_chunks"):
+            try:
+                backend_inst.index_chunks(st.session_state["cached_chunks"])
+            except Exception as e:
+                logger.warning("Could not re-populate cached chunks: %s", e)
 
-    backend: Optional[BackendServiceProtocol] = st.session_state.backend
-    backend_error: Optional[str] = st.session_state.backend_error
+    if st.session_state.get("incident_service") is None or st.session_state.get("incident_service_is_mock") != use_mock:
+        from src.services import create_incident_service
+        st.session_state["incident_service"] = create_incident_service(mock=use_mock)
+        st.session_state["incident_service_is_mock"] = use_mock
+
+    backend: Optional[BackendServiceProtocol] = st.session_state["backend"]
+    backend_error: Optional[str] = st.session_state["backend_error"]
 
     # Render top navbar with view toggle
     current_view = render_navbar()

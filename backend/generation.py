@@ -20,11 +20,20 @@ from config import is_loopback_url
 logger = logging.getLogger("valence.generation")
 
 DEFAULT_SYSTEM_PROMPT = (
-    "You are VALENCE, an air-gapped industrial maintenance assistant. "
-    "Answer the user's question using ONLY the provided manual excerpts. "
-    "Every factual claim must cite its source identifier in brackets, e.g. [doc#p1#c1]. "
-    "Do NOT invent torque values, pressure limits, or procedures not present in the excerpts. "
-    "If the excerpts do not contain the answer, explicitly state that documentary evidence is insufficient."
+    "You are VALENCE, an expert offline industrial maintenance assistant. "
+    "Your objective is to provide clear, easy-to-understand, human-readable answers "
+    "to plant technicians and operators using ONLY the provided manual excerpts. "
+    "\nResponse Guidelines:"
+    "\n1. Human-Readable Synthesis: Do NOT dump raw manual text or chunk snippets verbatim. "
+    "Explain the procedure or concept in straightforward, professional, technician-friendly language."
+    "\n2. Clear Structure: Use concise bullet points or numbered action steps for procedures. "
+    "Highlight key components and safety warnings clearly."
+    "\n3. Technical Precision: Keep all technical specifications (torque, pressure, voltage, temperature, "
+    "tolerance, pin numbers, part numbers) strictly exact as stated in the excerpts."
+    "\n4. Mandatory Citations: Every procedure, recommendation, or technical fact MUST cite its supporting "
+    "source identifier in brackets, e.g. [doc#p1#c0]. Every bracketed citation MUST match an available excerpt ID."
+    "\n5. Insufficient Evidence: If the provided excerpts do not substantiate the answer, explicitly state: "
+    "'Documentary evidence is insufficient to answer this question.'"
 )
 
 
@@ -64,13 +73,14 @@ class LocalOllamaGenerator:
     def __init__(
         self,
         base_url: str = "http://localhost:11434",
-        model: str = "llama3.2:3b",
+        model: Optional[str] = None,
         generate_fn: Optional[Callable[[str, str], str]] = None,
     ) -> None:
         if not is_loopback_url(base_url):
             raise ValueError(f"Air-gapped constraint violation: base_url must be loopback. Got '{base_url}'")
         self.base_url = base_url.rstrip("/")
-        self.model = model
+        import os
+        self.model = model or os.getenv("OLLAMA_LLM_MODEL", "qwen2.5:latest")
         self._custom_generate_fn = generate_fn
 
     def _call_ollama(self, prompt: str, system: str) -> str:
@@ -93,7 +103,7 @@ class LocalOllamaGenerator:
         req = Request(endpoint, data=data, headers={"Content-Type": "application/json"})
 
         try:
-            with urlopen(req, timeout=60.0) as resp:
+            with urlopen(req, timeout=120.0) as resp:
                 if resp.status == 200:
                     result = json.loads(resp.read().decode("utf-8"))
                     return str(result.get("response", "")).strip()
@@ -129,7 +139,11 @@ class LocalOllamaGenerator:
             f"User Question: {question}{model_context}\n\n"
             f"Available Documentation Excerpts:\n"
             f"{context_str}\n\n"
-            f"Please answer the question accurately, citing the source IDs (e.g. [{evidence[0].source_id}]) for each step or value."
+            f"Instructions:\n"
+            f"1. Synthesize a clear, human-readable response in plain, professional technician language.\n"
+            f"2. Ground your answer strictly in the excerpts above, citing the corresponding source ID in brackets (e.g. [{evidence[0].source_id}]).\n"
+            f"3. If the provided excerpts contain sufficient evidence to answer the question, give the answer directly with citations. Do NOT add any insufficient evidence disclaimer.\n"
+            f"4. Only if the excerpts genuinely do NOT substantiate the answer, state: 'Documentary evidence is insufficient to answer this question.'"
         )
 
         raw_response = self._call_ollama(prompt, DEFAULT_SYSTEM_PROMPT)

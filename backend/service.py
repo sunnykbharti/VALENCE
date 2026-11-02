@@ -42,9 +42,26 @@ class RealBackend:
         self.config = config or load_config()
 
         # Initialize Embedding Engine
-        self.embedding_engine = embedding_engine or LocalEmbeddingEngine(
-            model_dir=self.config.embedding_model_dir,
-        )
+        if embedding_engine is not None:
+            self.embedding_engine = embedding_engine
+        else:
+            try:
+                self.embedding_engine = LocalEmbeddingEngine(
+                    model_dir=self.config.embedding_model_dir,
+                )
+            except FileNotFoundError as e:
+                from backend.embedding import _deterministic_pseudo_embedding
+                logger.warning(
+                    "Local embedding model directory '%s' not found (%s). "
+                    "Operating with deterministic local pseudo-embedding fallback.",
+                    self.config.embedding_model_dir,
+                    e,
+                )
+                self.embedding_engine = LocalEmbeddingEngine(
+                    model_dir=self.config.embedding_model_dir,
+                    dimension=384,
+                    embed_fn=lambda texts: [_deterministic_pseudo_embedding(t, dim=384) for t in texts],
+                )
 
         # Initialize Persistent Vector Store
         self.vector_store = vector_store or PersistentVectorStore(

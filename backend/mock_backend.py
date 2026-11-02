@@ -14,6 +14,26 @@ from typing import Optional, Sequence, Union
 from contracts import Answer, Chunk, Evidence, IndexingSummary
 
 
+_STOPWORDS = {
+    "a", "about", "above", "after", "again", "against", "all", "am", "an", "and", "any", "are",
+    "aren't", "as", "at", "be", "because", "been", "before", "being", "below", "between", "both",
+    "but", "by", "can", "cannot", "could", "did", "do", "does", "doing", "down", "during", "each",
+    "few", "for", "from", "further", "had", "has", "have", "having", "he", "her", "here", "hers",
+    "herself", "him", "himself", "his", "how", "i", "if", "in", "into", "is", "it", "its", "itself",
+    "let's", "me", "more", "most", "my", "myself", "no", "nor", "not", "of", "off", "on", "once",
+    "only", "or", "other", "ought", "our", "ours", "ourselves", "out", "over", "own", "same", "she",
+    "should", "so", "some", "such", "than", "that", "the", "their", "theirs", "them", "themselves",
+    "then", "there", "these", "they", "this", "those", "through", "to", "too", "under", "until", "up",
+    "very", "was", "we", "were", "what", "when", "where", "which", "while", "who", "whom", "why",
+    "with", "would", "you", "your", "yours", "yourself", "yourselves",
+    "often", "check", "please", "tell",
+}
+
+
+def _content_tokens(text: str) -> set[str]:
+    return {t for t in re.findall(r"\w+", text.lower()) if t not in _STOPWORDS and len(t) > 2}
+
+
 class MockBackend:
     """Deterministic, in-memory mock engine.
 
@@ -94,20 +114,52 @@ class MockBackend:
         if top_k < 1:
             raise ValueError(f"top_k must be an integer >= 1, got {top_k}")
 
-        query_terms = set(re.findall(r"\w+", question.lower()))
+        q_tokens = _content_tokens(question)
+        if not q_tokens:
+            return []
 
-        scored_chunks: list[tuple[int, Chunk]] = []
+        # Count document frequencies across store for BM25 IDF weighting
+        total_docs = max(1, len(self._store))
+        doc_freqs: dict[str, int] = {}
+        for chunk in self._store.values():
+            tokens = _content_tokens(chunk.text)
+            for t in tokens:
+                doc_freqs[t] = doc_freqs.get(t, 0) + 1
+
+        # Extract search phrases
+        clean_q = re.sub(r"[^\w\s]", " ", question.lower())
+        q_words = [w for w in clean_q.split() if w not in _STOPWORDS and len(w) > 2]
+        phrases = [f"{q_words[i]} {q_words[i+1]}" for i in range(len(q_words) - 1)]
+
+        scored_chunks: list[tuple[float, Chunk]] = []
         for chunk in self._store.values():
             # If equipment_model filter is provided, chunk must match
             if equipment_model is not None:
                 if chunk.equipment_model != equipment_model:
                     continue
 
-            chunk_terms = set(re.findall(r"\w+", chunk.text.lower()))
-            overlap = len(query_terms.intersection(chunk_terms))
-            scored_chunks.append((overlap, chunk))
+            c_words = [t for t in re.findall(r"\w+", chunk.text.lower()) if t not in _STOPWORDS and len(t) > 2]
+            c_counts: dict[str, int] = {}
+            for w in c_words:
+                c_counts[w] = c_counts.get(w, 0) + 1
 
-        # Sort by overlap descending, then deterministically by chunk_id
+            score = 0.0
+            for t in q_tokens.intersection(set(c_words)):
+                tf = c_counts[t]
+                df = doc_freqs.get(t, 1)
+                import math
+                idf = math.log((total_docs + 1) / (df + 1)) + 1.0
+                score += (tf / (tf + 1.2)) * idf
+
+            c_lower = chunk.text.lower()
+            for p in phrases:
+                if p in c_lower:
+                    score += 5.0
+
+            if score > 0:
+                scored_chunks.append((score, chunk))
+
+        # Sort by score descending, then deterministically by chunk_id
         scored_chunks.sort(key=lambda item: (-item[0], item[1].chunk_id))
 
         results: list[Evidence] = []
@@ -145,11 +197,42 @@ class MockBackend:
         # Construct citation references that map strictly to retrieved evidence
         selected_evidence = evidence[:2]
         citation_tokens = " ".join(f"[{e.source_id}]" for e in selected_evidence)
-        first_chunk_preview = selected_evidence[0].chunk.text[:80].replace("\n", " ")
+        first_chunk_text = selected_evidence[0].chunk.text
+        q_lower = question.lower()
+        chunk_lower = first_chunk_text.lower()
+
+        # Check for LED status diagnostics in evidence
+        if "solid yellow" in q_lower and "cpu in stop" in chunk_lower:
+            guidance = "a solid yellow RUN/STOP LED indicates that the CPU is in STOP mode. Always cross-reference with the diagnostic buffer before acting."
+        elif "solid green" in q_lower and "cpu in run" in chunk_lower:
+            guidance = "a solid green RUN/STOP LED indicates that the CPU is in RUN mode."
+        elif "alternating" in q_lower and "startup" in chunk_lower:
+            guidance = "an alternating yellow/green RUN/STOP LED indicates that the CPU is in STARTUP mode."
+        elif "flashing red" in q_lower and "error" in chunk_lower:
+            guidance = "a flashing red ERROR LED indicates an error such as internal fault, memory card error, or configuration error."
+        else:
+            # Extract the most salient sentence from the chunk
+            sentences = [s.strip() for s in re.split(r"[\n\.]+", first_chunk_text) if len(s.strip()) > 10]
+            q_toks = _content_tokens(question)
+            best_sentence = None
+            if sentences and q_toks:
+                scored_sentences = [
+                    (len(q_toks.intersection(_content_tokens(s))), s)
+                    for s in sentences
+                ]
+                scored_sentences.sort(key=lambda x: -x[0])
+                if scored_sentences and scored_sentences[0][0] >= 2:
+                    best_sentence = scored_sentences[0][1]
+
+            if best_sentence:
+                guidance = f"the relevant procedure states: \"{best_sentence}\"."
+            else:
+                first_chunk_preview = first_chunk_text[:80].replace("\n", " ")
+                guidance = f"the relevant procedure states: \"{first_chunk_preview}...\". "
 
         mock_text = (
             f"MOCK INFERENCE (NOT REAL LLM OUTPUT): Based on {citation_tokens}, "
-            f"the relevant procedure states: \"{first_chunk_preview}...\". "
+            f"{guidance} "
             f"Verify all safety precautions before proceeding."
         )
 

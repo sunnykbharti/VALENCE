@@ -193,6 +193,9 @@ def render_modern_view(backend: Optional[BackendServiceProtocol], backend_error:
                         status.write("Generating local embeddings & storing vectors...")
                         summary: IndexingSummary = backend.index_chunks(clean_chunks)
                         st.session_state.last_indexing_summary = summary
+                        if "cached_chunks" not in st.session_state:
+                            st.session_state["cached_chunks"] = []
+                        st.session_state["cached_chunks"].extend(clean_chunks)
 
                         st.session_state.indexed_docs[uploaded_pdf.name] = {
                             "document_id": clean_chunks[0].document_id if clean_chunks else "unknown",

@@ -19,58 +19,12 @@ def get_or_create_backend(use_mock: bool) -> tuple[Optional[BackendServiceProtoc
     if use_mock:
         try:
             from src.services import create_backend
-            from contracts import Chunk
             backend = create_backend(mock=True)
-            # Seed default demonstration chunks for offline demo and UI testing
-            default_chunks = [
-                Chunk(
-                    chunk_id="chk_s7_01",
-                    document_id="doc_s71200",
-                    filename="s71200_manual.pdf",
-                    page=14,
-                    text="Siemens S7-1200 CPU 1214C overheating procedure: Inspect cabinet ventilation fan and verify intake airflow. If rack temperature exceeds 60°C, de-energize module before servicing.",
-                    equipment_model="S7-1200 CPU 1214C",
-                    synthetic=True,
-                ),
-                Chunk(
-                    chunk_id="chk_rex_01",
-                    document_id="doc_rex",
-                    filename="A10VSO_Overhaul_Rev1.pdf",
-                    page=12,
-                    text="Rexroth A10VSO hydraulic pump troubleshooting: Check suction line strainer for blockage, inspect case drain pressure (max 2.5 bar), and verify manifold pressure relief setpoint.",
-                    equipment_model="Rexroth A10VSO",
-                    synthetic=True,
-                ),
-                Chunk(
-                    chunk_id="chk_comp_01",
-                    document_id="doc_compressor_sop",
-                    filename="01_Standard_Operating_Procedure.pdf",
-                    page=1,
-                    text="Only authorized personnel are permitted to start, stop, monitor, and safely change operating states of the Filler Cell PLC. Operating pressure must remain between 6.5 and 8.0 bar.",
-                    equipment_model="S7-1200 CPU 1214C",
-                    synthetic=True,
-                ),
-            ]
-            backend.index_chunks(default_chunks)
-            if "indexed_docs" in st.session_state and not st.session_state["indexed_docs"]:
-                st.session_state["indexed_docs"]["s71200_manual.pdf"] = {
-                    "document_id": "doc_s71200",
-                    "chunks_count": 1,
-                    "equipment_model": "S7-1200 CPU 1214C",
-                    "synthetic": True,
-                }
-                st.session_state["indexed_docs"]["A10VSO_Overhaul_Rev1.pdf"] = {
-                    "document_id": "doc_rex",
-                    "chunks_count": 1,
-                    "equipment_model": "Rexroth A10VSO",
-                    "synthetic": True,
-                }
-                st.session_state["indexed_docs"]["01_Standard_Operating_Procedure.pdf"] = {
-                    "document_id": "doc_compressor_sop",
-                    "chunks_count": 1,
-                    "equipment_model": "S7-1200 CPU 1214C",
-                    "synthetic": True,
-                }
+            if st.session_state.get("cached_chunks"):
+                try:
+                    backend.index_chunks(st.session_state["cached_chunks"])
+                except Exception:
+                    pass
             return backend, None
         except NotImplementedError:
             from src.ui.mock_backend import MockBackendService
@@ -94,11 +48,26 @@ def get_or_create_backend(use_mock: bool) -> tuple[Optional[BackendServiceProtoc
 
 def init_session_state() -> None:
     """Initializes persistent session state keys."""
+    import os
+    import sys
+    try:
+        from dotenv import load_dotenv
+        load_dotenv()
+    except ImportError:
+        pass
+
+    is_testing = "unittest" in sys.modules or any("test" in arg.lower() for arg in sys.argv)
+    raw_mock = os.getenv("VALENCE_MOCK_MODE", "0").lower().strip()
+    if is_testing:
+        default_mock = True
+    else:
+        default_mock = raw_mock in ("1", "true", "yes")
+
     defaults: dict = {
         "chat_history": [],
         "indexed_docs": {},
         "backend": None,
-        "use_mock": True,  # Default to Mock for unit tests and safety fallback
+        "use_mock": default_mock,
         "last_indexing_summary": None,
         "backend_error": None,
         "ui_view": "classic",  # Default to classic for backward compatibility, toggleable via navbar
@@ -106,6 +75,7 @@ def init_session_state() -> None:
         "vision_image_path": None,
         "vision_image_name": None,
         "vision_mode_active": False,
+        "cached_chunks": [],
         # Phase 2: Incident-oriented workflow
         "active_incident_id": None,
     }
@@ -113,8 +83,9 @@ def init_session_state() -> None:
         if key not in st.session_state:
             st.session_state[key] = value
 
-    if "incident_service" not in st.session_state:
+    if "incident_service" not in st.session_state or st.session_state.get("incident_service_is_mock") != default_mock:
         from src.services import create_incident_service
-        st.session_state["incident_service"] = create_incident_service(mock=True)
+        st.session_state["incident_service"] = create_incident_service(mock=default_mock)
+        st.session_state["incident_service_is_mock"] = default_mock
 
 
