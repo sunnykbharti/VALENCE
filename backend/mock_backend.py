@@ -211,3 +211,22 @@ class MockBackend:
             insufficient_evidence=False,
             observations=observations,
         )
+
+    def evaluate_applicability(
+        self,
+        incident,
+        proposed_checks=None,
+    ):
+        """Evaluates applicability and escalation rules for an incident."""
+        from backend.applicability import evaluate_incident_applicability
+        return evaluate_incident_applicability(incident, proposed_checks)
+
+    def generate_handover(
+        self,
+        incident,
+        escalation=None,
+    ):
+        """Generates an auditable handover report from persisted incident facts."""
+        from backend.handover import generate_handover
+        return generate_handover(incident, escalation)
+

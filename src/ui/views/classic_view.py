@@ -14,6 +14,7 @@ import streamlit as st
 from contracts import Answer, IndexingSummary
 from src.services import BackendServiceProtocol, create_ingestor
 from src.ui.components.message_view import render_assistant_message, render_user_message
+from src.ui.components.incident_panel import render_incident_controls
 
 logger = logging.getLogger(__name__)
 
@@ -207,6 +208,12 @@ def render_classic_view(backend: Optional[BackendServiceProtocol], backend_error
             st.error(f"❌ {img_label} — Vision unavailable: {vision_unavailable_reason}")
         else:
             st.info(f"{img_label}: `{st.session_state.vision_image_name}` attached.")
+
+    # Phase 2: Operational Incident Workspace
+    incident_service = st.session_state.get("incident_service")
+    if incident_service:
+        with st.expander("🚨 Operational Incident Workspace", expanded=bool(st.session_state.get("active_incident_id"))):
+            render_incident_controls(incident_service)
 
     # Render conversation history
     for msg in st.session_state.chat_history:

@@ -72,3 +72,14 @@ def create_backend(
         from dataclasses import replace
         cfg = replace(cfg, collection_name=collection_name)
     return RealBackend(config=cfg)
+
+
+def create_incident_service(mock: bool = True):
+    """Factory creating the incident management service for Phase 2.
+
+    Args:
+        mock: If True, returns the in-memory MockIncidentService with canned industrial incidents.
+    """
+    from src.incidents import MockIncidentService
+    return MockIncidentService(populate_defaults=True)
+

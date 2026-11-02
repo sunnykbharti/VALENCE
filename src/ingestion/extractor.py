@@ -304,7 +304,7 @@ def extract_pages(file_path: Union[str, Path]) -> tuple[dict[int, str], str]:
             logger.debug("pypdf parsing failed (%s), falling back to pure-Python parser", e)
             pages_text = {}
 
-    if not pages_text:
+    if not any(txt.strip() for txt in pages_text.values()):
         try:
             pages_text = _parse_pdf_pure_python(raw_bytes)
         except Exception as e:
