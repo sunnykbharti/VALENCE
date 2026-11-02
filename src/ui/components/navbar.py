@@ -66,23 +66,14 @@ def render_navbar() -> str:
         options = ["🚀 Modern UI", "🏛️ Classic UI"]
         default_index = 0 if st.session_state["ui_view"] == "modern" else 1
 
-        if hasattr(st, "segmented_control"):
-            selected_view = st.segmented_control(
-                "Frontend View",
-                options=options,
-                default=options[default_index],
-                label_visibility="collapsed",
-                key="ui_view_selector",
-            )
-        else:
-            selected_view = st.radio(
-                "Frontend View",
-                options=options,
-                index=default_index,
-                horizontal=True,
-                label_visibility="collapsed",
-                key="ui_view_selector",
-            )
+        selected_view = st.radio(
+            "Frontend View",
+            options=options,
+            index=default_index,
+            horizontal=True,
+            label_visibility="collapsed",
+            key="ui_view_selector",
+        )
 
         if selected_view == "🏛️ Classic UI":
             st.session_state["ui_view"] = "classic"

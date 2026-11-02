@@ -378,3 +378,15 @@ class SQLiteIncidentService(IncidentServiceProtocol):
             return self.update_status(incident_id, "investigating")
         return inc
 
+    def add_technician_findings(self, incident_id: str, findings: Sequence[str]) -> Incident:
+        """Appends verified technician findings to the incident record."""
+        inc = self.get_incident(incident_id)
+        if not inc:
+            raise KeyError(f"Incident with ID '{incident_id}' not found")
+        for f in findings:
+            cleaned = f.strip()
+            if cleaned and cleaned not in inc.technician_findings:
+                inc.technician_findings.append(cleaned)
+        return self.update_incident(inc)
+
+

@@ -216,4 +216,41 @@ class RealBackend:
         from backend.handover import generate_handover
         return generate_handover(incident, escalation)
 
+    @property
+    def agent_executor(self):
+        if getattr(self, "_agent_executor", None) is None:
+            from backend.agent import AgentExecutor
+            from src.services import create_incident_service
+            self._agent_executor = AgentExecutor(backend=self, incident_service=create_incident_service(mock=True))
+        return self._agent_executor
+
+    def set_incident_service(self, incident_service) -> None:
+        """Configures or updates the incident service used by the agent executor."""
+        if getattr(self, "_agent_executor", None) is None:
+            from backend.agent import AgentExecutor
+            self._agent_executor = AgentExecutor(backend=self, incident_service=incident_service)
+        else:
+            self._agent_executor.incident_service = incident_service
+
+    def start_investigation(self, incident_id: str, query: Optional[str] = None, incident_service=None):
+        """Initiates an automated agent investigation workflow for an incident."""
+        if incident_service is not None:
+            self.set_incident_service(incident_service)
+        return self.agent_executor.start_investigation(incident_id=incident_id, query=query)
+
+    def resume_investigation(self, execution_id: str, user_response: str, incident_service=None):
+        """Resumes an investigation paused for operator clarification."""
+        if incident_service is not None:
+            self.set_incident_service(incident_service)
+        return self.agent_executor.resume_investigation(execution_id=execution_id, user_response=user_response)
+
+    def cancel_execution(self, execution_id: str):
+        """Cancels or pauses active execution."""
+        return self.agent_executor.cancel_execution(execution_id=execution_id)
+
+    def get_execution(self, execution_id: str):
+        """Fetches existing execution by ID."""
+        return self.agent_executor.get_execution(execution_id=execution_id)
+
+
 

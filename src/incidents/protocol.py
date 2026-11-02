@@ -70,3 +70,13 @@ class IncidentServiceProtocol(Protocol):
         """
         ...
 
+    def add_technician_findings(self, incident_id: str, findings: Sequence[str]) -> Incident:
+        """Appends human-verified physical inspection findings to the incident record.
+
+        Findings represent physical inspection results carried out by human technicians.
+
+        Raises:
+            KeyError: If incident_id does not exist.
+        """
+        ...
+

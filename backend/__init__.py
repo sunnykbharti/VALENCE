@@ -14,12 +14,21 @@ from backend.applicability import (
     validate_equipment_applicability,
     detect_contradictions,
     validate_proposed_checks,
+    extract_proposed_checks,
     evaluate_incident_applicability,
 )
 from backend.handover import (
     HandoverReport,
     generate_handover,
     promote_incident_to_knowledge_chunk,
+)
+from backend.agent import AgentExecutor
+from src.incidents.agent_schema import (
+    ToolEvent,
+    ClarificationRequest,
+    AgentExecution,
+    VALID_EXECUTION_STATES,
+    VALID_EVENT_STATUSES,
 )
 from backend.tools import (
     ToolResult,
@@ -55,10 +64,17 @@ __all__ = [
     "validate_equipment_applicability",
     "detect_contradictions",
     "validate_proposed_checks",
+    "extract_proposed_checks",
     "evaluate_incident_applicability",
     "HandoverReport",
     "generate_handover",
     "promote_incident_to_knowledge_chunk",
+    "AgentExecutor",
+    "ToolEvent",
+    "ClarificationRequest",
+    "AgentExecution",
+    "VALID_EXECUTION_STATES",
+    "VALID_EVENT_STATUSES",
     "ToolResult",
     "validate_safe_filesystem_path",
     "ToolRegistry",

@@ -64,6 +64,12 @@ def render_modern_view(backend: Optional[BackendServiceProtocol], backend_error:
                 eq_text = f" | Equipment: `{active_inc.equipment_model}` ({confirmed_badge})" if active_inc.equipment_model else ""
                 st.info(f"🚨 **Active Incident Context:** `{active_inc.incident_id}`: **{active_inc.title}** [{active_inc.status.upper()}]{eq_text}")
 
+                # Notification for pending operator clarification
+                exec_key = f"active_execution_{active_inc.incident_id}"
+                active_exec = st.session_state.get(exec_key)
+                if active_exec and active_exec.state == "waiting" and active_exec.clarification:
+                    st.warning(f"⏳ **Clarification Required for Incident `{active_inc.incident_id}`:** {active_exec.clarification.question} (Switch to '🚨 Incident Operations' to respond)")
+
         # Image attachment alert
         if st.session_state.get("vision_mode_active") and st.session_state.get("vision_image_name"):
             st.info(
@@ -115,7 +121,7 @@ def render_modern_view(backend: Optional[BackendServiceProtocol], backend_error:
     with tab_incident:
         incident_service = st.session_state.get("incident_service")
         if incident_service:
-            render_incident_controls(incident_service)
+            render_incident_controls(incident_service, backend=backend)
         else:
             st.error("Incident service unavailable in session state.")
 
