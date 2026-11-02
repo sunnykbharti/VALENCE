@@ -72,20 +72,6 @@
     "notes": "Negative test: Equipment model mismatch; model is unsupported in current indexed corpus."
   },
   {
-    "query_id": "eval_006",
-    "category": "visual_inspection",
-    "equipment_model": "S7-1200 CPU 1214C",
-    "question": "Inspect the attached photo of the PLC indicator LEDs. Does the RUN/STOP indicator show an error state?",
-    "expected_document": "01_Standard_Operating_Procedure.pdf",
-    "expected_page": 1,
-    "expected_answer_elements": [
-      "LED",
-      "RUN/STOP"
-    ],
-    "is_unanswerable": false,
-    "notes": "Multimodal inspection test evaluating visual LED observations alongside SOP guidance."
-  },
-  {
     "query_id": "eval_manual_001",
     "category": "manual_answerable",
     "equipment_model": "S7-1200 CPU 1214C",
@@ -157,7 +143,7 @@
       "model-dependent"
     ],
     "is_unanswerable": false,
-    "notes": "Equipment-ambiguous query: The S7-1200 family varies by CPU model (1211C/1212C have 4 HSC; 1214C/1215C have 6 HSC). Equipment model is unspecified (null); answer must present breakdown across models."
+    "notes": "Equipment-ambiguous query: The S7-1200 family varies by CPU model. Equipment model is unspecified (null); answer must present breakdown across models."
   },
   {
     "query_id": "eval_manual_006",
@@ -174,5 +160,78 @@
     ],
     "is_unanswerable": false,
     "notes": "Equipment-ambiguous query: Unspecified CPU model requires enumerating onboard I/O counts across 1211C, 1212C, 1214C, and 1215C."
+  },
+  {
+    "query_id": "eval_vision_001",
+    "category": "visual_inspection",
+    "equipment_model": "S7-1200 CPU 1214C",
+    "image_fixture": "tests/fixtures/synthetic_plc_leds_normal.png",
+    "image_description": "Synthetic diagram showing S7-1200 CPU 1214C front panel with RUN/STOP LED green and ERROR/MAINT LEDs off.",
+    "question": "Inspect the attached photo of the PLC indicator LEDs. What is the current operating state shown and does any LED indicate a fault?",
+    "expected_document": "01_Standard_Operating_Procedure.pdf",
+    "expected_page": 1,
+    "expected_answer_elements": [
+      "RUN/STOP indicator: green",
+      "ERROR LED: off",
+      "MAINT LED: off",
+      "CPU is in RUN state"
+    ],
+    "expected_observation_keywords": ["RUN", "LED", "green", "no fault"],
+    "is_unanswerable": false,
+    "notes": "Normal-state image. Synthetic fixture with clearly labelled SYNTHETIC DEMO watermark. Observations should be flagged tentative."
+  },
+  {
+    "query_id": "eval_vision_002",
+    "category": "visual_inspection_failure",
+    "equipment_model": null,
+    "image_fixture": "tests/fixtures/synthetic_blurry_panel.png",
+    "image_description": "Intentionally blurry/low-resolution synthetic image representing an unusable equipment photograph.",
+    "question": "What equipment state does this panel image show?",
+    "expected_document": null,
+    "expected_page": null,
+    "expected_answer_elements": [
+      "blurry",
+      "insufficient",
+      "image quality"
+    ],
+    "expected_observation_keywords": [],
+    "is_unanswerable": true,
+    "notes": "Blurry image test: System must report image quality too low for reliable interpretation. No fabricated observations should be returned."
+  },
+  {
+    "query_id": "eval_vision_003",
+    "category": "visual_inspection_no_match",
+    "equipment_model": null,
+    "image_fixture": "tests/fixtures/synthetic_unknown_equipment.png",
+    "image_description": "Synthetic image showing an ACME-PLC-9000X panel with no matching documentation in indexed corpus.",
+    "question": "What SOP procedure applies to this equipment?",
+    "expected_document": null,
+    "expected_page": null,
+    "expected_answer_elements": [
+      "insufficient evidence",
+      "no matching documentation",
+      "equipment not identified"
+    ],
+    "expected_observation_keywords": ["unknown", "no matching"],
+    "is_unanswerable": true,
+    "notes": "Unknown equipment image: System must declare no documentation match and insufficient_evidence. Must not invent procedures."
+  },
+  {
+    "query_id": "eval_vision_004",
+    "category": "visual_inspection_ambiguous_identity",
+    "equipment_model": null,
+    "image_fixture": "tests/fixtures/synthetic_ambiguous_model.png",
+    "image_description": "Synthetic image showing S7-1200 series CPU with partially obscured model label — model variant cannot be determined.",
+    "question": "Which startup procedure applies to this CPU?",
+    "expected_document": null,
+    "expected_page": null,
+    "expected_answer_elements": [
+      "ambiguous",
+      "model cannot be confirmed",
+      "S7-1200 family"
+    ],
+    "expected_observation_keywords": ["ambiguous", "S7-1200", "model number obscured"],
+    "is_unanswerable": false,
+    "notes": "Ambiguous equipment identity test: System should report that model variant cannot be determined from image alone, suggest physical label verification, and present model-family general guidance if available."
   }
 ]
