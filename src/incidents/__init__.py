@@ -3,6 +3,7 @@
 from src.incidents.schema import Incident, VALID_INCIDENT_STATUSES
 from src.incidents.protocol import IncidentServiceProtocol
 from src.incidents.mock_service import MockIncidentService
+from src.incidents.sqlite_service import SQLiteIncidentService
 from src.incidents.agent_schema import (
     ToolEvent,
     ClarificationRequest,
@@ -16,6 +17,7 @@ __all__ = [
     "VALID_INCIDENT_STATUSES",
     "IncidentServiceProtocol",
     "MockIncidentService",
+    "SQLiteIncidentService",
     "ToolEvent",
     "ClarificationRequest",
     "AgentExecution",

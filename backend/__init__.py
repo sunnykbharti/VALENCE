@@ -29,6 +29,23 @@ from src.incidents.agent_schema import (
     VALID_EXECUTION_STATES,
     VALID_EVENT_STATUSES,
 )
+from backend.tools import (
+    ToolResult,
+    validate_safe_filesystem_path,
+    ToolRegistry,
+    InspectImageTool,
+    LookupEquipmentTool,
+    SearchDocumentsTool,
+    AskUserTool,
+    ReadManualPageTool,
+)
+from backend.orchestrator import (
+    ALLOWED_ACTIONS,
+    ActionSelection,
+    OrchestratorEvent,
+    OrchestratorResult,
+    BoundedOrchestrator,
+)
 
 __all__ = [
     "MockBackend",
@@ -56,4 +73,17 @@ __all__ = [
     "AgentExecution",
     "VALID_EXECUTION_STATES",
     "VALID_EVENT_STATUSES",
+    "ToolResult",
+    "validate_safe_filesystem_path",
+    "ToolRegistry",
+    "InspectImageTool",
+    "LookupEquipmentTool",
+    "SearchDocumentsTool",
+    "AskUserTool",
+    "ReadManualPageTool",
+    "ALLOWED_ACTIONS",
+    "ActionSelection",
+    "OrchestratorEvent",
+    "OrchestratorResult",
+    "BoundedOrchestrator",
 ]
