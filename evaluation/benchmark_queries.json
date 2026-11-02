@@ -84,6 +84,95 @@
     ],
     "is_unanswerable": false,
     "notes": "Multimodal inspection test evaluating visual LED observations alongside SOP guidance."
+  },
+  {
+    "query_id": "eval_manual_001",
+    "category": "manual_answerable",
+    "equipment_model": "S7-1200 CPU 1214C",
+    "question": "What are the permissible ambient operating temperature ranges for the S7-1200 CPU when mounted horizontally versus vertically?",
+    "expected_document": "MANNUAL.pdf",
+    "expected_page": 803,
+    "expected_answer_elements": [
+      "0 °C to 55 °C horizontal",
+      "0 °C to 45 °C vertical",
+      "95% non-condensing"
+    ],
+    "is_unanswerable": false,
+    "notes": "Answerable technical specification lookup from Siemens S7-1200 System Manual Environmental Specifications."
+  },
+  {
+    "query_id": "eval_manual_002",
+    "category": "manual_answerable",
+    "equipment_model": "S7-1200 CPU 1214C",
+    "question": "What is the integrated work memory and load memory capacity of the S7-1200 CPU 1214C?",
+    "expected_document": "MANNUAL.pdf",
+    "expected_page": 820,
+    "expected_answer_elements": [
+      "75 KB work memory",
+      "4 MB load memory"
+    ],
+    "is_unanswerable": false,
+    "notes": "Answerable technical parameter for CPU 1214C from Technical Specifications table."
+  },
+  {
+    "query_id": "eval_manual_003",
+    "category": "manual_unanswerable",
+    "equipment_model": "S7-1200 CPU 1214C",
+    "question": "What is the recommended replacement interval for the hydraulic pump rotor seals on the auxiliary fluid loop?",
+    "expected_document": null,
+    "expected_page": null,
+    "expected_answer_elements": [
+      "insufficient evidence",
+      "not substantiated by the manual",
+      "hydraulic pump"
+    ],
+    "is_unanswerable": true,
+    "notes": "Unanswerable query: The S7-1200 manual covers programmable controllers and electronic modules; hydraulic rotor seals are completely absent."
+  },
+  {
+    "query_id": "eval_manual_004",
+    "category": "manual_unanswerable",
+    "equipment_model": "S7-1200 CPU 1214C",
+    "question": "What is the recommended ISO VG viscosity rating for lubricating the mechanical reduction gear box?",
+    "expected_document": null,
+    "expected_page": null,
+    "expected_answer_elements": [
+      "insufficient evidence",
+      "not specified in the manual",
+      "mechanical reduction"
+    ],
+    "is_unanswerable": true,
+    "notes": "Unanswerable query: Mechanical gearbox lubrication is outside the scope of the PLC manual."
+  },
+  {
+    "query_id": "eval_manual_005",
+    "category": "equipment_ambiguous",
+    "equipment_model": null,
+    "question": "How many onboard high-speed counters (HSC) are supported on the S7-1200 CPU?",
+    "expected_document": "MANNUAL.pdf",
+    "expected_page": 810,
+    "expected_answer_elements": [
+      "CPU 1211C and CPU 1212C support up to 4 HSC",
+      "CPU 1214C and CPU 1215C support up to 6 HSC",
+      "model-dependent"
+    ],
+    "is_unanswerable": false,
+    "notes": "Equipment-ambiguous query: The S7-1200 family varies by CPU model (1211C/1212C have 4 HSC; 1214C/1215C have 6 HSC). Equipment model is unspecified (null); answer must present breakdown across models."
+  },
+  {
+    "query_id": "eval_manual_006",
+    "category": "equipment_ambiguous",
+    "equipment_model": null,
+    "question": "What is the maximum digital input and digital output (DI/DO) channel count provided directly on the CPU?",
+    "expected_document": "MANNUAL.pdf",
+    "expected_page": 810,
+    "expected_answer_elements": [
+      "CPU 1211C (6 DI / 4 DO)",
+      "CPU 1212C (8 DI / 6 DO)",
+      "CPU 1214C (14 DI / 10 DO)",
+      "CPU 1215C (14 DI / 10 DO)"
+    ],
+    "is_unanswerable": false,
+    "notes": "Equipment-ambiguous query: Unspecified CPU model requires enumerating onboard I/O counts across 1211C, 1212C, 1214C, and 1215C."
   }
 ]
-
