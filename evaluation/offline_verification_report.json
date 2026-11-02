@@ -1,0 +1,34 @@
+{
+  "persistence": {
+    "status": "PASSED",
+    "details": "Incident state and attached evidence preserved across multiple restart lifecycles"
+  },
+  "robustness": {
+    "malformed_output": "PARSE_ERROR handled gracefully with bounded retries",
+    "missing_daemon": "Connection refused handled without process crash",
+    "path_security": "Path traversal blocked by security validator",
+    "step_exhaustion": "Halted after max 3 steps"
+  },
+  "air_gap_audit": {
+    "endpoint": "http://localhost:11434",
+    "telemetry_disabled": "true",
+    "remote_calls": "0"
+  },
+  "benchmarks": {
+    "text_incident": {
+      "latency_ms": 0.03,
+      "citations_count": 1,
+      "citations_valid": true
+    },
+    "image_incident": {
+      "latency_ms": 0.04,
+      "observations_count": 3,
+      "citations_valid": true
+    },
+    "memory": {
+      "initial_rss_mb": 21.4,
+      "peak_rss_mb": 21.4,
+      "delta_rss_mb": 0.0
+    }
+  }
+}
