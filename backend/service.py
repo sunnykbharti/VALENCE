@@ -16,6 +16,7 @@ from backend.embedding import LocalEmbeddingEngine
 from backend.vector_store import PersistentVectorStore
 from backend.retrieval import LocalRetriever
 from backend.generation import LocalOllamaGenerator
+from backend.vision import LocalVisionEngine, VisualInterpretation
 
 logger = logging.getLogger("valence.backend")
 
@@ -36,6 +37,7 @@ class RealBackend:
         embedding_engine: Optional[LocalEmbeddingEngine] = None,
         vector_store: Optional[PersistentVectorStore] = None,
         generator: Optional[LocalOllamaGenerator] = None,
+        vision_engine: Optional[LocalVisionEngine] = None,
     ) -> None:
         self.config = config or load_config()
 
@@ -61,6 +63,12 @@ class RealBackend:
         self.generator = generator or LocalOllamaGenerator(
             base_url=self.config.ollama_base_url,
             model=self.config.llm_model,
+        )
+
+        # Initialize Vision Engine (Milestone 3B)
+        self.vision_engine = vision_engine or LocalVisionEngine(
+            base_url=self.config.ollama_base_url,
+            model=self.config.vlm_model,
         )
 
     def index_chunks(self, chunks: Sequence[Chunk]) -> IndexingSummary:
@@ -114,9 +122,12 @@ class RealBackend:
         image_path: Union[str, Path],
         equipment_model: Optional[str] = None,
     ) -> Answer:
-        """Grounds question in retrieved evidence with image context.
+        """Grounds question in retrieved evidence informed by visual observations.
 
-        (Full multimodal VLM inference integrated in Milestone 3B).
+        - Extracts visible text, labels, and gauge readings.
+        - Keeps visual observations separate from retrieved SOP guidance.
+        - Resolves equipment ambiguity and detects user vs image model conflicts.
+        - Preserves text-only operation if vision fails.
         """
         if not question or not question.strip():
             raise ValueError("Question cannot be empty or whitespace-only.")
@@ -125,16 +136,65 @@ class RealBackend:
         if not img.exists():
             raise FileNotFoundError(f"Inspection image not found at: {img}")
 
-        evidence = self.retrieve(question, top_k=3, equipment_model=equipment_model)
+        if img.stat().st_size == 0:
+            raise ValueError(f"Image at '{img}' is empty or corrupt (0 bytes).")
+
+        # 1. Process image with local vision engine
+        visual_result = self.vision_engine.inspect_image(img, question)
+
+        effective_model = equipment_model
+        # 2. Check for conflict between supplied equipment_model and visually detected model
+        if equipment_model is not None:
+            if visual_result.detected_equipment and visual_result.detected_equipment.lower() != equipment_model.lower():
+                visual_result.observations.append(
+                    f"CONFLICT DETECTED: Supplied equipment model '{equipment_model}' conflicts with visible nameplate "
+                    f"'{visual_result.detected_equipment}'. Manual retrieval not silently overridden."
+                )
+                # Keep user's requested model
+                effective_model = equipment_model
+        else:
+            # User did not supply model; check if vision unambiguously detected one
+            if visual_result.detected_equipment and not visual_result.is_ambiguous:
+                effective_model = visual_result.detected_equipment
+                visual_result.observations.append(
+                    f"Tentative equipment filter '{effective_model}' applied based on visible nameplate."
+                )
+            elif visual_result.is_ambiguous:
+                effective_model = None
+                visual_result.observations.append(
+                    "Equipment identity is ambiguous from image; omitting model filter to prevent misapplication."
+                )
+
+        # 3. Inform retrieval: construct query incorporating visual observations
+        key_visual_terms = " ".join(
+            obs.replace("Tentative observation:", "").strip()
+            for obs in visual_result.observations
+            if "CONFLICT" not in obs and "unavailable" not in obs
+        )
+        enriched_query = f"{question} {key_visual_terms}".strip()
+
+        evidence = self.retrieve(enriched_query, top_k=3, equipment_model=effective_model)
+        # Fall back to base question if enriched query returned nothing
+        if not evidence and enriched_query != question:
+            evidence = self.retrieve(question, top_k=3, equipment_model=effective_model)
+
+        # 4. Synthesize Answer
+        if not evidence:
+            model_info = f" for equipment '{effective_model}'" if effective_model else ""
+            return Answer(
+                text=f"Insufficient documentary evidence found in manuals{model_info} to answer query with image '{img.name}'.",
+                evidence=[],
+                insufficient_evidence=True,
+                observations=visual_result.observations,
+            )
+
         base_answer = self.generator.answer_with_evidence(
             question=question,
             evidence=evidence,
-            equipment_model=equipment_model,
+            equipment_model=effective_model,
         )
 
-        base_answer.observations = [
-            f"Image '{img.name}' registered for inspection.",
-            f"Image dimensions and file check: {img.stat().st_size} bytes.",
-        ]
+        # 5. Visual observations remain distinctly populated
+        base_answer.observations = visual_result.observations
         return base_answer
 

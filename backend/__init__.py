@@ -6,6 +6,7 @@ from backend.embedding import LocalEmbeddingEngine
 from backend.vector_store import PersistentVectorStore
 from backend.retrieval import LocalRetriever
 from backend.generation import LocalOllamaGenerator
+from backend.vision import LocalVisionEngine, VisualInterpretation
 from backend.diagnostics import run_diagnostics, DiagnosticReport
 
 __all__ = [
@@ -15,6 +16,8 @@ __all__ = [
     "PersistentVectorStore",
     "LocalRetriever",
     "LocalOllamaGenerator",
+    "LocalVisionEngine",
+    "VisualInterpretation",
     "run_diagnostics",
     "DiagnosticReport",
 ]
