@@ -1,0 +1,89 @@
+[
+  {
+    "query_id": "eval_001",
+    "category": "equipment_sop",
+    "equipment_model": "S7-1200 CPU 1214C",
+    "question": "What is the procedure and authorization required to change the operating state of the Filler Cell PLC (PLC-FIL-02)?",
+    "expected_document": "01_Standard_Operating_Procedure.pdf",
+    "expected_page": 1,
+    "expected_answer_elements": [
+      "PLC-FIL-02",
+      "authorised personnel",
+      "start, stop, monitor and safely change the operating state"
+    ],
+    "is_unanswerable": false,
+    "notes": "Direct SOP lookup from Section 1: Purpose and scope."
+  },
+  {
+    "query_id": "eval_002",
+    "category": "equipment_sop",
+    "equipment_model": "S7-1200 CPU 1214C",
+    "question": "What is the frequency and responsible role for Level A visual walk-around inspection on Demo Bottling Line 2?",
+    "expected_document": "02_Inspection_SOP.pdf",
+    "expected_page": 1,
+    "expected_answer_elements": [
+      "Level A",
+      "Visual walk-around",
+      "Weekly"
+    ],
+    "is_unanswerable": false,
+    "notes": "Lookup from Inspection SOP Level A frequency table."
+  },
+  {
+    "query_id": "eval_003",
+    "category": "cross_manual",
+    "equipment_model": "S7-1200 CPU 1214C",
+    "question": "When a PLC critical fault occurs during operation, what severity level is assigned and what escalation path must be followed?",
+    "expected_document": "03_Demo_Escalation_Policy-1.pdf",
+    "expected_page": 1,
+    "expected_answer_elements": [
+      "Severity",
+      "escalation"
+    ],
+    "is_unanswerable": false,
+    "notes": "Cross-references escalation policy with PLC fault conditions."
+  },
+  {
+    "query_id": "eval_004",
+    "category": "negative_test",
+    "equipment_model": "S7-1200 CPU 1214C",
+    "question": "What is the exact torque specification for the cylinder head bolts on the high-pressure air compressor?",
+    "expected_document": null,
+    "expected_page": null,
+    "expected_answer_elements": [
+      "insufficient evidence",
+      "not specified"
+    ],
+    "is_unanswerable": true,
+    "notes": "Negative test: Cylinder head bolt torque is absent from available documents; system must flag insufficient_evidence."
+  },
+  {
+    "query_id": "eval_005",
+    "category": "negative_test",
+    "equipment_model": "Atlas-Copco-GA37",
+    "question": "What is the oil change interval for the Atlas Copco GA37 rotary screw compressor?",
+    "expected_document": null,
+    "expected_page": null,
+    "expected_answer_elements": [
+      "insufficient evidence",
+      "not available"
+    ],
+    "is_unanswerable": true,
+    "notes": "Negative test: Equipment model mismatch; model is unsupported in current indexed corpus."
+  },
+  {
+    "query_id": "eval_006",
+    "category": "visual_inspection",
+    "equipment_model": "S7-1200 CPU 1214C",
+    "question": "Inspect the attached photo of the PLC indicator LEDs. Does the RUN/STOP indicator show an error state?",
+    "expected_document": "01_Standard_Operating_Procedure.pdf",
+    "expected_page": 1,
+    "expected_answer_elements": [
+      "LED",
+      "RUN/STOP"
+    ],
+    "is_unanswerable": false,
+    "notes": "Multimodal inspection test evaluating visual LED observations alongside SOP guidance."
+  }
+]
+

@@ -25,6 +25,9 @@ class BackendServiceProtocol(
     ...
 
 
+from src.ingestion import MockPDFIngestor, PDFIngestor
+
+
 def create_ingestor(
     mock: bool = False,
     chunk_size: int = 500,
@@ -40,7 +43,10 @@ def create_ingestor(
     Returns:
         An instance conforming to DocumentIngestionProtocol.
     """
-    raise NotImplementedError("create_ingestor must be implemented in Member A ingestion module")
+    if mock:
+        return MockPDFIngestor(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+    return PDFIngestor(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+
 
 
 def create_backend(
