@@ -1,46 +1,46 @@
-# Project: Offline Industrial Knowledge Assistant
+# Project: Offline Industrial Knowledge Assistant (VALENCE)
 
 ## Objective
-Build a hackathon prototype that answers questions from equipment
-manuals and SOPs, with supporting evidence.
+Build a hackathon prototype that answers questions from equipment manuals and SOPs, with supporting evidence.
 
-## Runtime constraints
-- All document processing and inference must run locally.
-- No hosted inference, hosted embeddings, hosted OCR, or web search.
-- No runtime downloads, cloud fallback, or remote UI assets.
-- Localhost communication between components is permitted.
-- Separate online preparation from offline operation.
-- Do not introduce external services without explicit approval.
+## System Architecture & Constraints
+- **Air-gapped Runtime**: All document processing, embeddings, retrieval, generation, and image interpretation must run locally.
+- **No Remote Calls**: No hosted inference, hosted embeddings, hosted OCR, web search, cloud fallback, or automatic runtime downloads.
+- **Localhost Allowed**: Localhost inter-process communication (e.g. to a local Ollama daemon or local Qdrant instance) is permitted.
+- **Synthetic Data**: Public documents and clearly marked synthetic test data are used during development.
 
-## Initial architecture
-- Python and Streamlit.
-- Local PDF extraction.
-- Sentence Transformers loaded from a local model directory.
-- Qdrant local mode with persistent storage.
-- Ollama using locally installed models.
-- Model names and paths must be configurable.
+## Team Ownership & Responsibilities
+This project is shared across two separate Antigravity workspaces:
 
-## Implementation rules
-- Implement only the current milestone.
-- Prefer simple modules over agent frameworks.
-- Keep extraction, retrieval, generation, and UI separate.
-- Preserve document ID, equipment model, page, and source text.
-- Construct source references from stored metadata.
-- Clearly mark synthetic documents.
-- Do not invent maintenance instructions or technical values.
-- State when retrieved evidence is insufficient.
+### Member A (MacBook Air M1)
+- Document ingestion & PDF parsing (`ingest_pdf`)
+- User Interface (Streamlit)
+- Evaluation harness (`evaluation/`)
+- Demo scenario scripting and presentation
 
-## Verification rules
-- Add tests for new behavior.
-- Distinguish mocked tests from real model integration tests.
-- Never claim a test passed unless it was executed.
-- If a model or dependency is unavailable, report the blocker.
-- Do not silently download a replacement.
+### Member B (MacBook Air M5)
+- Local model management and embedding pipeline
+- Vector indexing and retrieval (`index_chunks`, `retrieve`)
+- Local LLM generation & local multimodal interpretation (`answer_question`, `answer_with_image`)
+- System configuration and dependency management
 
-## Handoff
-Report:
-1. Files changed.
-2. Commands executed.
-3. Tests run and actual results.
-4. Remaining limitations.
-5. The next smallest task.
+## Shared Contracts & Conventions
+- Shared contracts live in [`contracts.py`](file:///Users/sunnykumarbharti/Desktop/Desktop/Vikrant/contracts.py) and cannot be modified without mutual agreement.
+- **Page Numbers**: 1-based original PDF page positions (`page >= 1`).
+- **Data Validation**: Reject whitespace-only chunk text, empty document IDs, and empty source IDs.
+- **Deterministic IDs**: Chunk and document IDs must be derived deterministically.
+- **Insufficient Evidence**: Defined strictly by documentary support (retrieved context does not substantiate the answer), never by model confidence scores.
+- **Citations**: `Answer.evidence` contains supporting evidence selected for the answer. Every citation identifier in `Answer.text` must map to an item in `Answer.evidence`.
+- **Unknown Equipment**: If equipment model is unidentified or unspecified, it must remain `None`.
+- **No Hallucination**: Do not invent maintenance instructions or technical values. State when evidence is insufficient.
+
+## Verification & Handoff Rules
+- Distinguish mocked unit tests from real model integration tests.
+- Never claim a test passed unless it was actually executed.
+- Report all blockers explicitly (e.g., missing dependencies or missing local models).
+- Every handoff must report:
+  1. Files changed.
+  2. Commands executed.
+  3. Tests run and actual results.
+  4. Remaining limitations.
+  5. The next smallest task.
