@@ -15,6 +15,7 @@ import streamlit as st
 from contracts import Answer, IndexingSummary
 from src.services import BackendServiceProtocol, create_ingestor
 from src.ui.components.message_view import render_assistant_message, render_user_message
+from src.ui.components.incident_panel import render_incident_controls
 
 logger = logging.getLogger(__name__)
 
@@ -27,8 +28,9 @@ def render_modern_view(backend: Optional[BackendServiceProtocol], backend_error:
     """Renders the modern industrial workspace layout with top tabs."""
     use_mock = st.session_state.get("use_mock", True)
 
-    tab_chat, tab_docs, tab_vision, tab_settings = st.tabs([
+    tab_chat, tab_incident, tab_docs, tab_vision, tab_settings = st.tabs([
         "💬 Assistant Console",
+        "🚨 Incident Operations",
         "📚 Knowledge Base & Indexing",
         "🖼️ Visual Inspection",
         "⚙️ System & Model Control",
@@ -52,6 +54,15 @@ def render_modern_view(backend: Optional[BackendServiceProtocol], backend_error:
             if st.button("🗑️ Clear Chat", key="modern_clear_chat", help="Wipe conversation history"):
                 st.session_state.chat_history = []
                 st.rerun()
+
+        # Active incident alert (Phase 2)
+        active_id = st.session_state.get("active_incident_id")
+        if active_id and st.session_state.get("incident_service"):
+            active_inc = st.session_state.incident_service.get_incident(active_id)
+            if active_inc:
+                confirmed_badge = "✅ Confirmed" if active_inc.equipment_confirmed else "⚠️ Unconfirmed"
+                eq_text = f" | Equipment: `{active_inc.equipment_model}` ({confirmed_badge})" if active_inc.equipment_model else ""
+                st.info(f"🚨 **Active Incident Context:** `{active_inc.incident_id}`: **{active_inc.title}** [{active_inc.status.upper()}]{eq_text}")
 
         # Image attachment alert
         if st.session_state.get("vision_mode_active") and st.session_state.get("vision_image_name"):
@@ -99,7 +110,17 @@ def render_modern_view(backend: Optional[BackendServiceProtocol], backend_error:
             _process_query(prompt, backend)
 
     # ══════════════════════════════════════════════════════════════════════════
-    # TAB 2: KNOWLEDGE BASE & INDEXING
+    # TAB 2: INCIDENT OPERATIONS (PHASE 2)
+    # ══════════════════════════════════════════════════════════════════════════
+    with tab_incident:
+        incident_service = st.session_state.get("incident_service")
+        if incident_service:
+            render_incident_controls(incident_service)
+        else:
+            st.error("Incident service unavailable in session state.")
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # TAB 3: KNOWLEDGE BASE & INDEXING
     # ══════════════════════════════════════════════════════════════════════════
     with tab_docs:
         st.subheader("📄 Document Ingestion & Vector Indexing")

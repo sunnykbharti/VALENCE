@@ -198,3 +198,22 @@ class RealBackend:
         base_answer.observations = visual_result.observations
         return base_answer
 
+    def evaluate_applicability(
+        self,
+        incident: Incident,
+        proposed_checks: Optional[Sequence[ProposedCheck]] = None,
+    ) -> EscalationDecision:
+        """Evaluates applicability and escalation rules for an incident."""
+        from backend.applicability import evaluate_incident_applicability
+        return evaluate_incident_applicability(incident, proposed_checks)
+
+    def generate_handover(
+        self,
+        incident: Incident,
+        escalation: Optional[EscalationDecision] = None,
+    ) -> HandoverReport:
+        """Generates an auditable handover report from persisted incident facts."""
+        from backend.handover import generate_handover
+        return generate_handover(incident, escalation)
+
+

@@ -46,16 +46,23 @@ def init_session_state() -> None:
         "chat_history": [],
         "indexed_docs": {},
         "backend": None,
-        "use_mock": False,  # Default to Live Engine for presentation path
+        "use_mock": True,  # Default to Mock for unit tests and safety fallback
         "last_indexing_summary": None,
         "backend_error": None,
-        "ui_view": "modern",  # "modern" or "classic"
+        "ui_view": "classic",  # Default to classic for backward compatibility, toggleable via navbar
         # Vision state
         "vision_image_path": None,
         "vision_image_name": None,
         "vision_mode_active": False,
+        # Phase 2: Incident-oriented workflow
+        "active_incident_id": None,
     }
     for key, value in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = value
+
+    if "incident_service" not in st.session_state:
+        from src.services import create_incident_service
+        st.session_state["incident_service"] = create_incident_service(mock=True)
+
 

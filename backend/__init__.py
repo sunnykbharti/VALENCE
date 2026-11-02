@@ -8,6 +8,19 @@ from backend.retrieval import LocalRetriever
 from backend.generation import LocalOllamaGenerator
 from backend.vision import LocalVisionEngine, VisualInterpretation
 from backend.diagnostics import run_diagnostics, DiagnosticReport
+from backend.applicability import (
+    ProposedCheck,
+    EscalationDecision,
+    validate_equipment_applicability,
+    detect_contradictions,
+    validate_proposed_checks,
+    evaluate_incident_applicability,
+)
+from backend.handover import (
+    HandoverReport,
+    generate_handover,
+    promote_incident_to_knowledge_chunk,
+)
 
 __all__ = [
     "MockBackend",
@@ -20,4 +33,13 @@ __all__ = [
     "VisualInterpretation",
     "run_diagnostics",
     "DiagnosticReport",
+    "ProposedCheck",
+    "EscalationDecision",
+    "validate_equipment_applicability",
+    "detect_contradictions",
+    "validate_proposed_checks",
+    "evaluate_incident_applicability",
+    "HandoverReport",
+    "generate_handover",
+    "promote_incident_to_knowledge_chunk",
 ]
