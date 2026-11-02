@@ -21,6 +21,16 @@ from backend.handover import (
     generate_handover,
     promote_incident_to_knowledge_chunk,
 )
+from backend.tools import (
+    ToolResult,
+    validate_safe_filesystem_path,
+    ToolRegistry,
+    InspectImageTool,
+    LookupEquipmentTool,
+    SearchDocumentsTool,
+    AskUserTool,
+    ReadManualPageTool,
+)
 
 __all__ = [
     "MockBackend",
@@ -42,4 +52,12 @@ __all__ = [
     "HandoverReport",
     "generate_handover",
     "promote_incident_to_knowledge_chunk",
+    "ToolResult",
+    "validate_safe_filesystem_path",
+    "ToolRegistry",
+    "InspectImageTool",
+    "LookupEquipmentTool",
+    "SearchDocumentsTool",
+    "AskUserTool",
+    "ReadManualPageTool",
 ]
