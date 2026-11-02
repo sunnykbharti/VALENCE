@@ -56,3 +56,4 @@ class LookupEquipmentTool:
             )
         except Exception as e:
             return ToolResult(success=False, error=f"EquipmentLookupError: {e}")
+

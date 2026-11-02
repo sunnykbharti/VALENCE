@@ -72,3 +72,4 @@ class SearchDocumentsTool:
             )
         except Exception as e:
             return ToolResult(success=False, error=f"DocumentSearchError: {e}")
+

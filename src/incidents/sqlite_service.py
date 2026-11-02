@@ -377,3 +377,4 @@ class SQLiteIncidentService(IncidentServiceProtocol):
         if inc.status == "open":
             return self.update_status(incident_id, "investigating")
         return inc
+

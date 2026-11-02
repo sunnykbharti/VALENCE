@@ -80,3 +80,4 @@ class InspectImageTool:
                 )
         except Exception as e:
             return ToolResult(success=False, error=f"VisionExecutionError: {e}")
+

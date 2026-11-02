@@ -75,3 +75,4 @@ class ToolRegistry:
                 success=False,
                 error=f"ToolExecutionFailure: Tool '{name}' raised unexpected error: {e}",
             )
+

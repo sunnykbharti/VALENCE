@@ -61,3 +61,4 @@ class ReadManualPageTool:
             ),
             data={"supported": False, "document_id": document_id, "page": page},
         )
+

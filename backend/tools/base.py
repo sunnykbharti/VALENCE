@@ -88,3 +88,4 @@ def validate_safe_filesystem_path(
         raise FileNotFoundError(f"Validated file path does not exist: '{resolved}'")
 
     return resolved
+
