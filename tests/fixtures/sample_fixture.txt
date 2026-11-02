@@ -1,0 +1,14 @@
+--- Page 1 ---
+Section 1: General Safety Information.
+Always wear ANSI-approved eye protection and thermal gloves when operating heating chamber H-500.
+
+--- Page 2 ---
+   
+   
+
+--- Page 3 ---
+Section 2: Emergency Shutdown Sequence.
+1. Depress main emergency stop switch S1.
+2. Cut fuel supply via valve FV-01.
+3. Evacuate chamber enclosure immediately.
+

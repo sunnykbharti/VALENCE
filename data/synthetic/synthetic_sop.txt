@@ -1,0 +1,25 @@
+--- Page 1 ---
+Standard Operating Procedure: Model-X Industrial Air Compressor Startup
+Equipment: Model-X
+Revision: 2.1
+Status: Synthetic Document for Offline Testing
+
+1. Pre-Startup Inspection
+Before energizing the compressor, inspect the oil sight glass. The oil level must be within the green operating zone.
+Check all emergency stop switches to ensure they are depressed in the disengaged position.
+Verify that the air intake filter is clean and free of particulate obstruction.
+
+--- Page 2 ---
+2. Energizing Procedure
+Turn the main isolator switch on the primary distribution panel clockwise to the ON position.
+Observe the digital control module. The system will perform an internal diagnostics check lasting 10 seconds.
+Verify that no error codes (ERR-01 through ERR-99) appear on the display screen.
+Press and hold the green START button for 2 seconds until the auxiliary cooling fan engages.
+
+--- Page 3 ---
+3. Operating Parameters and Pressure Relief
+Normal operating pressure is between 6.5 bar and 8.0 bar.
+If internal pressure exceeds 9.2 bar, the automatic safety release valve V-12 will actuate.
+In the event of an abnormal temperature reading exceeding 95 degrees Celsius, immediately press the Emergency Stop.
+Log all hourly pressure readings in the maintenance ledger.
+
