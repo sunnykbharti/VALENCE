@@ -97,3 +97,4 @@ All operations run strictly offline and air-gapped on the local machine.
      - **Review Disclaimer**:
        > *"Authentication/authorization is not implemented in this offline runtime. Reviewer approval cannot be certified; outcomes remain strictly unreviewed."*
 5. Click **💾 Export Handover Report (JSON)** to download the auditable handoff file for the incoming maintenance shift.
+
