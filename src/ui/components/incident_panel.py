@@ -19,16 +19,23 @@ from typing import Optional
 import streamlit as st
 from src.incidents.schema import Incident, VALID_INCIDENT_STATUSES
 from src.incidents.protocol import IncidentServiceProtocol
+from src.ui.components.activity_panel import render_activity_panel
 
 logger = logging.getLogger(__name__)
 
 
-def render_incident_controls(service: IncidentServiceProtocol) -> Optional[Incident]:
+def render_incident_controls(
+    service: IncidentServiceProtocol,
+    backend=None,
+) -> Optional[Incident]:
     """Renders incident selector and create/open controls.
 
     Returns:
         The currently active Incident object, or None if none selected.
     """
+    if backend is None:
+        backend = st.session_state.get("backend")
+
     st.markdown("### 🚨 Incident Management & Workspace")
     st.caption("🔶 **[MOCK INCIDENT SERVICE ACTIVE]** — In-memory incident tracking and state management.")
 
@@ -71,7 +78,7 @@ def render_incident_controls(service: IncidentServiceProtocol) -> Optional[Incid
         st.session_state["active_incident_id"] = chosen_id
         active_inc = service.get_incident(chosen_id)
         if active_inc:
-            _render_active_incident_details(service, active_inc)
+            _render_active_incident_details(service, active_inc, backend=backend)
         return active_inc
 
 
@@ -132,8 +139,14 @@ def _render_create_incident_form(service: IncidentServiceProtocol) -> None:
                 st.error(f"Failed to create incident: {e}")
 
 
-def _render_active_incident_details(service: IncidentServiceProtocol, inc: Incident) -> None:
+def _render_active_incident_details(
+    service: IncidentServiceProtocol,
+    inc: Incident,
+    backend=None,
+) -> None:
     """Renders full details of an active incident with strict visual separation."""
+    if backend is None:
+        backend = st.session_state.get("backend")
     # Top Status Bar
     status_colors = {
         "open": ("#fee2e2", "#ef4444", "🚨 OPEN"),
@@ -338,5 +351,54 @@ def _render_active_incident_details(service: IncidentServiceProtocol, inc: Incid
                 st.error(f"🛑 **Authoritative Knowledge Promotion**: {saved_report.knowledge_guard_reason}")
 
             st.markdown(saved_report.markdown_text)
+
+    # 8. Autonomous Agent Troubleshooting & Real Activity Stream (Phase 2 Milestone 2A)
+    st.markdown("---")
+    st.markdown("#### 🤖 Autonomous Agent Troubleshooting")
+    st.caption("Executes real diagnostic tools across indexed manuals, checks applicability, and prompts for clarification.")
+
+    exec_key = f"active_execution_{inc.incident_id}"
+    active_execution = st.session_state.get(exec_key)
+
+    is_executing = st.session_state.get("is_executing", False)
+    btn_disabled = is_executing or (active_execution is not None and active_execution.state == "running")
+
+    col_btn1, col_btn2 = st.columns([3, 1])
+    with col_btn1:
+        if st.button(
+            "🚀 Run Automated Agent Investigation",
+            key=f"btn_start_agent_{inc.incident_id}",
+            disabled=btn_disabled,
+            type="primary",
+            use_container_width=True,
+            help="Executes retrieval, applicability check, operator clarification, and synthesis tools.",
+        ):
+            if backend is None:
+                st.error("Backend service is unavailable.")
+            else:
+                st.session_state["is_executing"] = True
+                try:
+                    with st.spinner("Agent running real diagnostic tools..."):
+                        execution = backend.start_investigation(
+                            incident_id=inc.incident_id,
+                            query=inc.symptom,
+                            incident_service=service,
+                        )
+                        st.session_state[exec_key] = execution
+                except Exception as e:
+                    st.error(f"Investigation error: {e}")
+                finally:
+                    st.session_state["is_executing"] = False
+                    st.rerun()
+
+    with col_btn2:
+        if active_execution is not None:
+            if st.button("🔄 Reset Run", key=f"btn_reset_exec_{inc.incident_id}", disabled=is_executing):
+                st.session_state[exec_key] = None
+                st.rerun()
+
+    if active_execution is not None and backend is not None:
+        render_activity_panel(active_execution, backend=backend, incident_service=service)
+
 
 

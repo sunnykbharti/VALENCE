@@ -213,7 +213,7 @@ def render_classic_view(backend: Optional[BackendServiceProtocol], backend_error
     incident_service = st.session_state.get("incident_service")
     if incident_service:
         with st.expander("🚨 Operational Incident Workspace", expanded=bool(st.session_state.get("active_incident_id"))):
-            render_incident_controls(incident_service)
+            render_incident_controls(incident_service, backend=backend)
 
     # Render conversation history
     for msg in st.session_state.chat_history:

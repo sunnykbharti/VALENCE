@@ -21,6 +21,14 @@ from backend.handover import (
     generate_handover,
     promote_incident_to_knowledge_chunk,
 )
+from backend.agent import AgentExecutor
+from src.incidents.agent_schema import (
+    ToolEvent,
+    ClarificationRequest,
+    AgentExecution,
+    VALID_EXECUTION_STATES,
+    VALID_EVENT_STATUSES,
+)
 
 __all__ = [
     "MockBackend",
@@ -42,4 +50,10 @@ __all__ = [
     "HandoverReport",
     "generate_handover",
     "promote_incident_to_knowledge_chunk",
+    "AgentExecutor",
+    "ToolEvent",
+    "ClarificationRequest",
+    "AgentExecution",
+    "VALID_EXECUTION_STATES",
+    "VALID_EVENT_STATUSES",
 ]
