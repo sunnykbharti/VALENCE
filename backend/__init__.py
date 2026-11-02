@@ -31,6 +31,13 @@ from backend.tools import (
     AskUserTool,
     ReadManualPageTool,
 )
+from backend.orchestrator import (
+    ALLOWED_ACTIONS,
+    ActionSelection,
+    OrchestratorEvent,
+    OrchestratorResult,
+    BoundedOrchestrator,
+)
 
 __all__ = [
     "MockBackend",
@@ -60,4 +67,9 @@ __all__ = [
     "SearchDocumentsTool",
     "AskUserTool",
     "ReadManualPageTool",
+    "ALLOWED_ACTIONS",
+    "ActionSelection",
+    "OrchestratorEvent",
+    "OrchestratorResult",
+    "BoundedOrchestrator",
 ]
