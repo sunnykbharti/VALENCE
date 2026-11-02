@@ -13,6 +13,7 @@ Displays and manages industrial incidents:
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import Optional
 
@@ -179,6 +180,78 @@ def _render_active_incident_details(
         st.markdown("#### ⚡ Reported Symptom / Condition")
         st.info(f"**Description:** {inc.symptom}")
 
+    # Task 3: Equipment/manual mismatch and missing-evidence alert banners
+    from backend.applicability import validate_equipment_applicability, detect_contradictions
+    if not inc.evidence:
+        st.markdown(
+            """
+            <div style="background:rgba(245, 158, 11, 0.12); border-left:4px solid #f59e0b; padding:0.75rem 1rem; border-radius:4px; margin:0.75rem 0;">
+                <strong style="color:#fbbf24;">⚠️ MISSING DOCUMENTARY EVIDENCE</strong>
+                <div style="color:#fde68a; font-size:0.85rem; margin-top:0.25rem;">
+                    No documentary evidence or equipment manuals are attached to this incident. Grounded troubleshooting procedures cannot be certified.
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    else:
+        is_app, r_code, r_details, blocking = validate_equipment_applicability(
+            target_equipment=inc.equipment_model,
+            target_revision=inc.firmware_revision or inc.hardware_revision,
+            evidence=inc.evidence,
+        )
+        if not is_app:
+            if r_code == "EQUIPMENT_MISMATCH":
+                st.markdown(
+                    f"""
+                    <div style="background:rgba(239, 68, 68, 0.15); border-left:4px solid #ef4444; padding:0.75rem 1rem; border-radius:4px; margin:0.75rem 0;">
+                        <strong style="color:#f87171;">🚨 EQUIPMENT / MANUAL MISMATCH</strong>
+                        <div style="color:#fca5a5; font-size:0.85rem; margin-top:0.25rem;">
+                            Target equipment <code>{inc.equipment_model}</code> does not match the retrieved document metadata. {r_details}
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+            elif r_code == "UNKNOWN_EQUIPMENT":
+                st.markdown(
+                    """
+                    <div style="background:rgba(245, 158, 11, 0.12); border-left:4px solid #f59e0b; padding:0.75rem 1rem; border-radius:4px; margin:0.75rem 0;">
+                        <strong style="color:#fbbf24;">❓ UNCONFIRMED / UNKNOWN EQUIPMENT IDENTITY</strong>
+                        <div style="color:#fde68a; font-size:0.85rem; margin-top:0.25rem;">
+                            Target equipment model is unconfirmed or unknown. Verify physical nameplate before applying documented procedures.
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+            elif r_code == "MISSING_REVISION":
+                st.markdown(
+                    f"""
+                    <div style="background:rgba(245, 158, 11, 0.12); border-left:4px solid #f59e0b; padding:0.75rem 1rem; border-radius:4px; margin:0.75rem 0;">
+                        <strong style="color:#fbbf24;">⚠️ MISSING REVISION DATA</strong>
+                        <div style="color:#fde68a; font-size:0.85rem; margin-top:0.25rem;">
+                            {r_details}
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+        contradictions = detect_contradictions(inc.evidence)
+        if contradictions:
+            st.markdown(
+                f"""
+                <div style="background:rgba(220, 38, 38, 0.2); border-left:4px solid #dc2626; padding:0.75rem 1rem; border-radius:4px; margin:0.75rem 0;">
+                    <strong style="color:#fca5a5;">🚨 CONTRADICTORY DOCUMENTARY INSTRUCTIONS</strong>
+                    <div style="color:#fed7aa; font-size:0.85rem; margin-top:0.25rem;">
+                        {contradictions[0]['description']} Silent resolution is prohibited.
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
     # 2. Status Transition Controls
     c1, c2 = st.columns([3, 1])
     with c1:
@@ -302,6 +375,95 @@ def _render_active_incident_details(
 
     st.markdown("---")
 
+    # 5B. Proposed Documented Checks & Field Technician Findings (Phase 2 Milestone 3A Tasks 1 & 2)
+    st.markdown("#### 🛠️ Proposed Documented Checks (Evidence-Grounded)")
+    st.caption("Operational steps derived strictly from attached equipment documentation. Each check is substantiated by specific source citations.")
+
+    from backend.applicability import extract_proposed_checks
+    proposed_checks = extract_proposed_checks(inc.evidence) if inc.evidence else []
+
+    if not proposed_checks:
+        st.info("No proposed checks available. Attach equipment documentation or manual excerpts to generate grounded checks.")
+    else:
+        for chk in proposed_checks:
+            with st.container():
+                st.markdown(
+                    f"""
+                    <div style="background:#1e293b; border:1px solid #334155; border-radius:8px; padding:0.85rem 1rem; margin-bottom:0.75rem;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.35rem;">
+                            <span style="color:#60a5fa; font-weight:700;">Step {chk.step_number}: <code>{chk.check_id}</code></span>
+                            {'<span style="background:rgba(245, 158, 11, 0.2); color:#fbbf24; font-size:0.75rem; padding:0.15rem 0.5rem; border-radius:4px;">' + chk.safety_precaution + '</span>' if chk.safety_precaution else ''}
+                        </div>
+                        <div style="color:#f8fafc; font-size:0.95rem; margin-bottom:0.5rem;">
+                            <strong>Instruction:</strong> {chk.instruction}
+                        </div>
+                        <div style="font-size:0.8rem; color:#94a3b8; margin-bottom:0.25rem;">
+                            <strong>Linked Evidence Source:</strong> <code>{', '.join(chk.evidence_ids)}</code>
+                        </div>
+                        <div style="font-size:0.75rem; color:#94a3b8; margin-top:0.4rem; padding-top:0.4rem; border-top:1px dashed #334155;">
+                            ℹ️ <strong>Physical Check Disclaimer</strong>: Field inspection must be executed physically by an authorized human technician. VALENCE does not perform physical actions.
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+                # Expandable Source Evidence details (Task 1)
+                matching_ev = [e for e in inc.evidence if e.source_id in chk.evidence_ids]
+                if matching_ev:
+                    with st.expander(f"📖 View Source Evidence for {chk.check_id}", expanded=False):
+                        for mev in matching_ev:
+                            st.caption(f"Source: `{mev.source_id}` | Manual: `{mev.chunk.filename}` (Page {mev.chunk.page})")
+                            st.info(mev.chunk.text)
+
+                # Technician Finding Recording form (Task 2)
+                # Note: Explicit disclaimer that application does NOT perform the check
+                with st.expander(f"📝 Record Field Inspection Finding for Step {chk.step_number} (Human-Verified)", expanded=False):
+                    st.caption(
+                        "ℹ️ **Physical Check Disclaimer**: This check must be performed physically by an authorized technician. "
+                        "The application does not perform or automate physical actions."
+                    )
+                    c_f1, c_f2 = st.columns([4, 1])
+                    with c_f1:
+                        f_input = st.text_input(
+                            f"Technician Finding for {chk.check_id}",
+                            placeholder="e.g. Resistance reads 4.2 ohms (within spec); no physical damage.",
+                            key=f"finding_input_{inc.incident_id}_{chk.check_id}",
+                        )
+                    with c_f2:
+                        st.write("")
+                        st.write("")
+                        if st.button("Save Finding", key=f"btn_save_finding_{inc.incident_id}_{chk.check_id}"):
+                            if f_input and f_input.strip():
+                                formatted_finding = f"[{chk.check_id} Physical Finding]: {f_input.strip()}"
+                                service.add_technician_findings(inc.incident_id, [formatted_finding])
+                                st.success("Physical inspection finding recorded.")
+                                st.rerun()
+                            else:
+                                st.error("Please enter finding description.")
+
+    # List recorded technician findings distinctly (Task 2 & 7)
+    st.markdown("##### 🟢 Recorded Field Technician Findings")
+    st.caption("Human-verified physical inspection results. Kept strictly distinct from tentative observations and unreviewed hypotheses.")
+    if inc.technician_findings:
+        for idx, finding in enumerate(inc.technician_findings, start=1):
+            st.markdown(f"**{idx}.** `{finding}`")
+    else:
+        st.caption("No human technician findings recorded yet.")
+
+    with st.expander("➕ Append General Technician Finding"):
+        st.caption("ℹ️ Recorded as a human physical observation. VALENCE does not perform physical actions.")
+        gen_finding = st.text_input("Physical Inspection Finding", placeholder="e.g. Cleaned fan filter; motor rotor turns freely by hand.", key=f"gen_finding_{inc.incident_id}")
+        if st.button("Record General Finding", key=f"btn_gen_finding_{inc.incident_id}"):
+            if gen_finding and gen_finding.strip():
+                service.add_technician_findings(inc.incident_id, [gen_finding.strip()])
+                st.success("Technician finding saved.")
+                st.rerun()
+            else:
+                st.error("Please enter finding text.")
+
+    st.markdown("---")
+
     # 6. Applicability & Escalation Governance (Phase 2 Milestone 3B)
     st.markdown("#### ⚖️ Applicability & Escalation Governance")
     with st.expander("🔍 Pre-Flight Applicability & Escalation Evaluation", expanded=False):
@@ -328,29 +490,107 @@ def _render_active_incident_details(
                     f"**Next Action**: {saved_decision.action_required}"
                 )
 
-    # 7. Shift Handover & Knowledge Base Guard (Phase 2 Milestone 3B)
-    with st.expander("📋 Generate Shift Handover & Knowledge Guard", expanded=False):
-        st.caption("Compiles persisted incident facts into an auditable handover and checks knowledge promotion eligibility.")
-        if st.button("Compile Shift Handover Report", key=f"btn_handover_{inc.incident_id}"):
-            from backend.handover import generate_handover
-            escalation_dec = st.session_state.get(f"escalation_{inc.incident_id}")
-            report = generate_handover(inc, escalation=escalation_dec)
-            st.session_state[f"handover_{inc.incident_id}"] = report
+    # 7. Shift Handover Staging, Review & Export (Phase 2 Milestone 3A Tasks 4, 5, 6, 7)
+    with st.expander("📋 Shift Handover Staging, Review & Export", expanded=False):
+        st.caption("Compiles persisted incident facts into an auditable handover preview. Review all uncertainty and unresolved items before saving or exporting.")
 
-        saved_report = st.session_state.get(f"handover_{inc.incident_id}")
-        if saved_report:
-            if saved_report.is_complete:
-                st.success("✅ **Handover Complete**: All operational fields are verified.")
-            else:
-                st.warning(f"⚠️ **Incomplete Handover**: Missing fields: `{', '.join(saved_report.missing_fields)}`")
+        escalation_dec = st.session_state.get(f"escalation_{inc.incident_id}")
+        review_notes_key = f"handover_review_notes_{inc.incident_id}"
 
-            # Knowledge promotion guard badge
-            if saved_report.authoritative_knowledge_eligible:
-                st.success(f"🟢 **Authoritative Knowledge Promotion**: {saved_report.knowledge_guard_reason}")
-            else:
-                st.error(f"🛑 **Authoritative Knowledge Promotion**: {saved_report.knowledge_guard_reason}")
+        # Review notes input (Task 5)
+        user_notes = st.text_area(
+            "Shift Reviewer Notes / Addendum (Optional)",
+            value=st.session_state.get(review_notes_key, ""),
+            placeholder="e.g. Handing off to Shift 2. Replacement fan blade on order (PO #4412). Breaker locked out.",
+            key=f"textarea_notes_{inc.incident_id}",
+            help="Review and supplement the handover before exporting or saving.",
+        )
+        st.session_state[review_notes_key] = user_notes
 
-            st.markdown(saved_report.markdown_text)
+        from backend.handover import generate_handover
+        report = generate_handover(inc, escalation=escalation_dec, user_review_notes=user_notes)
+        st.session_state[f"handover_{inc.incident_id}"] = report
+
+        # Task 6 & 7: Prominent Labels and Separation
+        st.markdown(
+            """
+            <div style="background:rgba(59, 130, 246, 0.1); border:1px solid #3b82f6; border-radius:6px; padding:0.6rem 0.9rem; margin-bottom:0.75rem;">
+                <span style="color:#60a5fa; font-weight:700;">🤖 [GENERATED SUMMARY - REQUIRES HUMAN REVIEW]</span>
+                <div style="font-size:0.8rem; color:#94a3b8; margin-top:0.25rem;">
+                    Generated from persisted facts and documentary citations. Verify all items before shift transfer.
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        if report.is_synthetic:
+            st.markdown(
+                """
+                <div style="background:rgba(245, 158, 11, 0.1); border:1px solid #f59e0b; border-radius:6px; padding:0.6rem 0.9rem; margin-bottom:0.75rem;">
+                    <span style="color:#fbbf24; font-weight:700;">🔶 [SYNTHETIC TEST BENCHMARK DATA - NOT FOR PRODUCTION DISPATCH]</span>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        # Task 7: Unreviewed outcome disclaimer
+        if not report.is_reviewed:
+            st.markdown(
+                """
+                <div style="background:rgba(239, 68, 68, 0.1); border:1px solid #ef4444; border-radius:6px; padding:0.6rem 0.9rem; margin-bottom:0.75rem;">
+                    <span style="color:#f87171; font-weight:700;">⚠️ [UNREVIEWED OUTCOME - NO AUTHORITATIVE SIGN-OFF]</span>
+                    <div style="font-size:0.8rem; color:#fca5a5; margin-top:0.25rem;">
+                        Authentication and authorization mechanisms are not implemented in this offline runtime.
+                        No reviewer approval is certified or implied; this outcome remains unreviewed.
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        # Completeness Badge
+        if report.is_complete:
+            st.success("✅ **Handover Complete**: All operational fields are verified.")
+        else:
+            st.warning(f"⚠️ **Incomplete Handover**: Missing fields: `{', '.join(report.missing_fields)}`")
+
+        # Knowledge promotion guard badge
+        if report.authoritative_knowledge_eligible:
+            st.success(f"🟢 **Authoritative Knowledge Promotion**: {report.knowledge_guard_reason}")
+        else:
+            st.error(f"🛑 **Authoritative Knowledge Promotion**: {report.knowledge_guard_reason}")
+
+        # Render structured preview markdown
+        st.markdown(report.markdown_text)
+
+        # Action Buttons: Save & Export (Task 5)
+        st.markdown("---")
+        st.markdown("##### 💾 Save & Export Handover")
+        c_exp1, c_exp2, c_exp3 = st.columns(3)
+        with c_exp1:
+            if st.button("💾 Save Handover to Incident", key=f"btn_save_handover_{inc.incident_id}"):
+                st.session_state[f"saved_handover_{inc.incident_id}"] = report
+                st.success("Handover report saved to incident record.")
+
+        with c_exp2:
+            st.download_button(
+                label="📥 Export Handover (Markdown)",
+                data=report.markdown_text,
+                file_name=f"handover_{inc.incident_id.lower().replace('-', '_')}.md",
+                mime="text/markdown",
+                key=f"download_md_{inc.incident_id}",
+            )
+
+        with c_exp3:
+            report_json = json.dumps(report.to_dict(), indent=2)
+            st.download_button(
+                label="📥 Export Handover (JSON)",
+                data=report_json,
+                file_name=f"handover_{inc.incident_id.lower().replace('-', '_')}.json",
+                mime="application/json",
+                key=f"download_json_{inc.incident_id}",
+            )
 
     # 8. Autonomous Agent Troubleshooting & Real Activity Stream (Phase 2 Milestone 2A)
     st.markdown("---")

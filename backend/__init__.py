@@ -14,6 +14,7 @@ from backend.applicability import (
     validate_equipment_applicability,
     detect_contradictions,
     validate_proposed_checks,
+    extract_proposed_checks,
     evaluate_incident_applicability,
 )
 from backend.handover import (
@@ -63,6 +64,7 @@ __all__ = [
     "validate_equipment_applicability",
     "detect_contradictions",
     "validate_proposed_checks",
+    "extract_proposed_checks",
     "evaluate_incident_applicability",
     "HandoverReport",
     "generate_handover",

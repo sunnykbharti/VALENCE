@@ -151,3 +151,16 @@ class MockIncidentService(IncidentServiceProtocol):
         inc.updated_at = datetime.now(timezone.utc).isoformat()
         return inc
 
+    def add_technician_findings(self, incident_id: str, findings: Sequence[str]) -> Incident:
+        """Appends verified technician findings to the incident record."""
+        if incident_id not in self._incidents:
+            raise KeyError(f"Incident with ID '{incident_id}' not found")
+
+        inc = self._incidents[incident_id]
+        for f in findings:
+            cleaned = f.strip()
+            if cleaned and cleaned not in inc.technician_findings:
+                inc.technician_findings.append(cleaned)
+        inc.updated_at = datetime.now(timezone.utc).isoformat()
+        return inc
+

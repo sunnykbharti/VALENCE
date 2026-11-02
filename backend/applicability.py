@@ -249,6 +249,66 @@ def validate_proposed_checks(
     return (len(invalid_ids) == 0, invalid_ids)
 
 
+def extract_proposed_checks(evidence: Sequence[Evidence]) -> list[ProposedCheck]:
+    """Generates structured proposed checks grounded strictly in attached evidence.
+
+    Invariants:
+    - Every proposed check references only source IDs present in the provided evidence.
+    - Preserves safety precautions and component contexts extracted from documentary excerpts.
+    """
+    checks: list[ProposedCheck] = []
+    step_num = 1
+    for ev in evidence:
+        text = ev.chunk.text
+        sentences = re.split(r"(?<=[.!?])\s+|\n+", text)
+        for s in sentences:
+            s_clean = s.strip()
+            if not s_clean or len(s_clean) < 15:
+                continue
+            action_kws = (
+                "check", "inspect", "measure", "verify", "replace", "turn",
+                "ensure", "clean", "test", "monitor", "disconnect", "tighten",
+                "align", "isolate", "de-energize", "lockout", "warning", "caution",
+            )
+            if any(re.search(r"\b" + kw + r"\b", s_clean, re.IGNORECASE) for kw in action_kws):
+                safety = None
+                safety_kws = (
+                    "lockout", "tagout", "isolate", "de-energize", "power off",
+                    "ppe", "protective", "hazard", "caution", "warning", "danger",
+                )
+                if any(re.search(r"\b" + skw + r"\b", s_clean, re.IGNORECASE) for skw in safety_kws) or any(
+                    re.search(r"\b" + skw + r"\b", text, re.IGNORECASE) for skw in safety_kws
+                ):
+                    safety = "⚠️ Mandatory electrical/pneumatic isolation or PPE required prior to inspection."
+
+                chk = ProposedCheck(
+                    check_id=f"CHK-{step_num:02d}",
+                    step_number=step_num,
+                    instruction=s_clean,
+                    evidence_ids=[ev.source_id],
+                    target_component=ev.chunk.equipment_model,
+                    safety_precaution=safety,
+                )
+                checks.append(chk)
+                step_num += 1
+                if len(checks) >= 8:
+                    break
+        if len(checks) >= 8:
+            break
+
+    if not checks and evidence:
+        checks.append(
+            ProposedCheck(
+                check_id="CHK-01",
+                step_number=1,
+                instruction=f"Review and apply maintenance section '{evidence[0].chunk.filename}' (Page {evidence[0].chunk.page}).",
+                evidence_ids=[evidence[0].source_id],
+                target_component=evidence[0].chunk.equipment_model,
+            )
+        )
+    return checks
+
+
 def evaluate_incident_applicability(
     incident: Incident,
     proposed_checks: Optional[Sequence[ProposedCheck]] = None,
