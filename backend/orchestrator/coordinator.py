@@ -140,26 +140,86 @@ class BoundedOrchestrator:
     ) -> ActionSelection:
         """Enforces hard deterministic constraints that cannot be bypassed by the model.
 
-        Rule 1: If equipment identity is unknown and model attempts to 'finish',
-                force 'ask_user' or 'escalate' to prevent ungrounded instructions.
+        Rule 1: If equipment identity is unknown, model cannot 'finish' without clarification.
+        Rule 2: If documentary evidence contradicts, mismatches, or is missing,
+                deterministic guard intercepts 'finish' and converts to 'escalate'.
+        Rule 3: Proposed checks must cite valid evidence belonging to this incident.
         """
         if action_sel.action == "finish":
-            if not incident.equipment_model or not incident.equipment_confirmed:
+            from backend.applicability import (
+                ProposedCheck,
+                evaluate_incident_applicability,
+            )
+
+            # 1. Parse any proposed checks or evidence references from model parameters
+            proposed_checks: list[ProposedCheck] = []
+            raw_checks = action_sel.parameters.get("checks", [])
+            if isinstance(raw_checks, list) and len(raw_checks) > 0:
+                for idx, c in enumerate(raw_checks, start=1):
+                    if isinstance(c, dict) and "instruction" in c:
+                        chk_id = str(c.get("check_id", f"CHK-{idx}"))
+                        ev_ids = [str(i) for i in c.get("evidence_ids", [])]
+                        if not ev_ids:
+                            ev_ids = [str(i) for i in action_sel.parameters.get("evidence_ids", [])]
+                        if ev_ids:
+                            proposed_checks.append(
+                                ProposedCheck(
+                                    check_id=chk_id,
+                                    step_number=idx,
+                                    instruction=str(c.get("instruction")),
+                                    evidence_ids=ev_ids,
+                                    target_component=c.get("target_component"),
+                                    safety_precaution=c.get("safety_precaution"),
+                                )
+                            )
+            elif "evidence_ids" in action_sel.parameters:
+                top_ev = [str(i) for i in action_sel.parameters.get("evidence_ids", [])]
+                if top_ev:
+                    proposed_checks.append(
+                        ProposedCheck(
+                            check_id="CHK-01",
+                            step_number=1,
+                            instruction=str(action_sel.parameters.get("guidance", "Execute maintenance check")),
+                            evidence_ids=top_ev,
+                        )
+                    )
+
+            # 2. Evaluate full applicability against incident evidence
+            app_decision = evaluate_incident_applicability(
+                incident=incident,
+                proposed_checks=proposed_checks if proposed_checks else None,
+            )
+
+            if app_decision.escalate:
                 logger.warning(
-                    "[DETERMINISTIC GUARD] Intercepted 'finish' on unconfirmed equipment incident '%s'. Forcing 'ask_user'.",
-                    incident.incident_id,
+                    "[DETERMINISTIC GUARD] Escalation triggered on 'finish': reason=%s, details=%s",
+                    app_decision.reason,
+                    app_decision.details,
                 )
-                return ActionSelection(
-                    action="ask_user",
-                    parameters={
-                        "question": (
-                            f"Equipment identity is unconfirmed for incident '{incident.incident_id}'. "
-                            "Please specify and confirm the exact equipment model before maintenance instructions can be approved."
-                        ),
-                        "options": ["Provide equipment model", "Escalate to engineering"],
-                    },
-                    rationale="Deterministic guard override: Cannot certify procedure without confirmed equipment identity.",
-                )
+                if app_decision.reason == "UNKNOWN_EQUIPMENT":
+                    return ActionSelection(
+                        action="ask_user",
+                        parameters={
+                            "question": (
+                                f"Equipment identity is unknown or unconfirmed for incident '{incident.incident_id}'. "
+                                "Please specify and confirm the exact equipment model before maintenance instructions can be approved."
+                            ),
+                            "options": ["Provide equipment model", "Escalate to engineering"],
+                        },
+                        rationale="Deterministic guard override: Cannot certify procedure without confirmed equipment identity.",
+                    )
+                else:
+                    return ActionSelection(
+                        action="escalate",
+                        parameters={
+                            "reason": app_decision.reason,
+                            "details": app_decision.details,
+                            "blocking_sources": app_decision.blocking_sources,
+                            "action_required": app_decision.action_required,
+                        },
+                        rationale=f"Deterministic guard override: Procedure blocked due to {app_decision.reason}.",
+                    )
+
         return action_sel
 
     def run_investigation(
@@ -293,13 +353,15 @@ class BoundedOrchestrator:
                 )
 
             elif action_sel.action == "escalate":
+                from backend.handover import generate_handover
                 reason = action_sel.parameters.get("reason", "UNRESOLVED_APPLICABILITY")
                 details = action_sel.parameters.get("details", action_sel.rationale)
                 esc_dec = EscalationDecision(
                     escalate=True,
                     reason=reason,
                     details=details,
-                    action_required="Escalate to plant engineering.",
+                    blocking_sources=action_sel.parameters.get("blocking_sources", []),
+                    action_required=action_sel.parameters.get("action_required", "Escalate to plant engineering."),
                 )
                 esc_ev = OrchestratorEvent(
                     step=step,
@@ -308,6 +370,7 @@ class BoundedOrchestrator:
                     payload={"reason": reason, "details": details},
                 )
                 events.append(esc_ev)
+                handover_rep = generate_handover(incident, escalation=esc_dec)
                 return OrchestratorResult(
                     status="ESCALATED",
                     events=events,
@@ -315,9 +378,11 @@ class BoundedOrchestrator:
                     steps_executed=step,
                     evidence=accumulated_evidence,
                     observations=accumulated_observations,
+                    handover=handover_rep,
                 )
 
             elif action_sel.action == "finish":
+                from backend.handover import generate_handover
                 guidance = action_sel.parameters.get("guidance", "Troubleshooting complete.")
                 finish_ev = OrchestratorEvent(
                     step=step,
@@ -326,6 +391,7 @@ class BoundedOrchestrator:
                     payload={"guidance": guidance},
                 )
                 events.append(finish_ev)
+                handover_rep = generate_handover(incident, escalation=None)
                 return OrchestratorResult(
                     status="COMPLETED",
                     final_answer=guidance,
@@ -333,6 +399,7 @@ class BoundedOrchestrator:
                     steps_executed=step,
                     evidence=accumulated_evidence,
                     observations=accumulated_observations,
+                    handover=handover_rep,
                 )
 
             # 5. Execute Standard Tool

@@ -261,7 +261,25 @@ def evaluate_incident_applicability(
     3. Detection of contradictory instructions without silent resolution.
     4. Association of checks with valid evidence belonging strictly to this incident.
     """
-    # Rule 1: Check for absent evidence
+    # Rule 1: Check if equipment identity is unknown or unconfirmed
+    if not incident.equipment_model or not incident.equipment_model.strip():
+        return EscalationDecision(
+            escalate=True,
+            reason="UNKNOWN_EQUIPMENT",
+            details="Target equipment identity is unknown (None). Procedure cannot be certified as applicable.",
+            blocking_sources=[],
+            action_required="Identify target equipment model from physical nameplate before applying procedure.",
+        )
+    if not incident.equipment_confirmed:
+        return EscalationDecision(
+            escalate=True,
+            reason="UNKNOWN_EQUIPMENT",
+            details=f"Equipment model '{incident.equipment_model}' is tentative and unconfirmed by operator.",
+            blocking_sources=[],
+            action_required="Confirm equipment model identifier before proceeding with maintenance actions.",
+        )
+
+    # Rule 2: Check for absent evidence
     if not incident.evidence:
         return EscalationDecision(
             escalate=True,
@@ -271,7 +289,7 @@ def evaluate_incident_applicability(
             action_required="Perform grounded document retrieval or index relevant equipment SOPs.",
         )
 
-    # Rule 2: Check equipment applicability & revision
+    # Rule 3: Check equipment applicability & revision
     is_app, reason_code, details, blocking_srcs = validate_equipment_applicability(
         target_equipment=incident.equipment_model,
         target_revision=incident.firmware_revision or incident.hardware_revision,

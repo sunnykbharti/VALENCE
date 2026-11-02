@@ -81,4 +81,6 @@ class OrchestratorResult:
     steps_executed: int = 0
     evidence: list[Evidence] = field(default_factory=list)
     observations: list[str] = field(default_factory=list)
+    handover: Optional[Any] = None
+
 

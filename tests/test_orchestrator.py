@@ -26,12 +26,21 @@ class TestOrchestratorUnit(unittest.TestCase):
         self.registry = ToolRegistry(self.backend)
 
         # Base test incident
+        valid_chunk = Chunk(
+            chunk_id="chunk_a10vso",
+            document_id="doc_a10vso_manual",
+            filename="a10vso_manual.pdf",
+            page=4,
+            text="Rexroth A10VSO axial piston pump operating limits and thermal overload instructions.",
+            equipment_model="Rexroth A10VSO",
+        )
         self.incident = Incident(
             incident_id="INC-TEST-001",
             title="Overheating Hydraulic Pump",
             symptom="Pump temperature exceeds 80°C threshold.",
             equipment_model="Rexroth A10VSO",
             equipment_confirmed=True,
+            evidence=[Evidence(source_id="doc_a10vso_manual#p4#c0", chunk=valid_chunk)],
         )
 
     def test_invalid_tool_action_rejected(self):
@@ -192,6 +201,110 @@ class TestOrchestratorUnit(unittest.TestCase):
         # Deterministic guard must intercept finish and pause for user!
         self.assertEqual(res.status, "PAUSED_FOR_USER")
         self.assertTrue(any(e.action == "ask_user" for e in res.events))
+
+    def test_deterministic_guard_escalates_on_equipment_mismatch(self):
+        """Model attempts to finish with mismatched equipment -> deterministic guard escalates with EQUIPMENT_MISMATCH."""
+        mismatched_chunk = Chunk(
+            chunk_id="chunk_1500",
+            document_id="doc_s71500",
+            filename="s71500.pdf",
+            page=1,
+            text="S7-1500 CPU 1516 instructions.",
+            equipment_model="S7-1500 CPU 1516",
+        )
+        ev_mismatch = Evidence(source_id="doc_s71500#p1#c0", chunk=mismatched_chunk)
+        inc = Incident(
+            incident_id="INC-MISMATCH",
+            title="CPU Alarm",
+            symptom="Overtemp",
+            equipment_model="S7-1200 CPU 1214C",
+            equipment_confirmed=True,
+            evidence=[ev_mismatch],
+        )
+
+        finish_output = json.dumps({
+            "action": "finish",
+            "parameters": {"guidance": "Reset CPU breaker."},
+            "rationale": "Done",
+        })
+
+        orchestrator = BoundedOrchestrator(
+            tool_registry=self.registry,
+            max_steps=2,
+            model_caller=lambda msgs: finish_output,
+        )
+        res = orchestrator.run_investigation(inc)
+        self.assertEqual(res.status, "ESCALATED")
+        self.assertEqual(res.escalation.reason, "EQUIPMENT_MISMATCH")
+        self.assertIsNotNone(res.handover)
+
+    def test_deterministic_guard_escalates_on_contradictory_sources(self):
+        """Model attempts to finish with contradictory torque instructions -> escalates with CONTRADICTORY_INSTRUCTIONS."""
+        ev_t45 = Evidence(
+            source_id="doc_a#p1#c0",
+            chunk=Chunk("c1", "doc_a", "a.pdf", 1, "Torque bolts to 45 Nm.", equipment_model="Rexroth A10VSO"),
+        )
+        ev_t65 = Evidence(
+            source_id="doc_b#p1#c0",
+            chunk=Chunk("c2", "doc_b", "b.pdf", 1, "Torque bolts to 65 Nm.", equipment_model="Rexroth A10VSO"),
+        )
+        inc = Incident(
+            incident_id="INC-CONTRADICT",
+            title="Flange Mount",
+            symptom="Mounting pump",
+            equipment_model="Rexroth A10VSO",
+            equipment_confirmed=True,
+            evidence=[ev_t45, ev_t65],
+        )
+
+        finish_output = json.dumps({
+            "action": "finish",
+            "parameters": {"guidance": "Torque to 45 Nm."},
+            "rationale": "Chose doc A arbitrarily",
+        })
+
+        orchestrator = BoundedOrchestrator(
+            tool_registry=self.registry,
+            max_steps=2,
+            model_caller=lambda msgs: finish_output,
+        )
+        res = orchestrator.run_investigation(inc)
+        self.assertEqual(res.status, "ESCALATED")
+        self.assertEqual(res.escalation.reason, "CONTRADICTORY_INSTRUCTIONS")
+
+    def test_deterministic_guard_escalates_on_invalid_evidence_id(self):
+        """Model attempts to finish citing evidence ID not in incident -> escalates with INVALID_EVIDENCE_REFERENCE."""
+        valid_ev = Evidence(
+            source_id="doc_valid#p1#c0",
+            chunk=Chunk("c1", "doc_valid", "v.pdf", 1, "Valid pump SOP text.", equipment_model="Rexroth A10VSO"),
+        )
+        inc = Incident(
+            incident_id="INC-INVALID-REF",
+            title="Pump Check",
+            symptom="Check pressure",
+            equipment_model="Rexroth A10VSO",
+            equipment_confirmed=True,
+            evidence=[valid_ev],
+        )
+
+        finish_with_fake_id = json.dumps({
+            "action": "finish",
+            "parameters": {
+                "guidance": "Check pump inlet.",
+                "evidence_ids": ["doc_hallucinated#p99#c0"],
+            },
+            "rationale": "Cited hallucinated doc",
+        })
+
+        orchestrator = BoundedOrchestrator(
+            tool_registry=self.registry,
+            max_steps=2,
+            model_caller=lambda msgs: finish_with_fake_id,
+        )
+        res = orchestrator.run_investigation(inc)
+        self.assertEqual(res.status, "ESCALATED")
+        self.assertEqual(res.escalation.reason, "INVALID_EVIDENCE_REFERENCE")
+
 
 
 class TestRealLocalModelOrchestration(unittest.TestCase):
