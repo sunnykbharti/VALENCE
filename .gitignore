@@ -39,3 +39,9 @@ data/raw_docs/
 # OS artifacts
 .DS_Store
 Thumbs.db
+
+# Frontend node modules and build artifacts
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+

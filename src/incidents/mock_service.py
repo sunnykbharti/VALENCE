@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 import logging
 from typing import Optional, Sequence
 
-from contracts import Evidence
+from contracts import Chunk, Evidence
 from src.incidents.schema import Incident, VALID_INCIDENT_STATUSES
 from src.incidents.protocol import IncidentServiceProtocol
 
@@ -28,6 +28,30 @@ class MockIncidentService(IncidentServiceProtocol):
 
     def _seed_default_incidents(self) -> None:
         """Seeds initial synthetic incidents for testing and UI demonstration."""
+        ev1 = Evidence(
+            source_id="doc_s71200#p14#c01",
+            chunk=Chunk(
+                chunk_id="chk_s7_01",
+                document_id="doc_s71200",
+                filename="s71200_manual.pdf",
+                page=14,
+                text="Siemens S7-1200 CPU 1214C overheating procedure: Inspect cabinet ventilation fan and verify intake airflow. If rack temperature exceeds 60°C, de-energize module before servicing.",
+                equipment_model="S7-1200 CPU 1214C",
+                synthetic=True,
+            ),
+        )
+        ev2 = Evidence(
+            source_id="doc_rex#p12#c01",
+            chunk=Chunk(
+                chunk_id="chk_rex_01",
+                document_id="doc_rex",
+                filename="A10VSO_Overhaul_Rev1.pdf",
+                page=12,
+                text="Rexroth A10VSO hydraulic pump troubleshooting: Check suction line strainer for blockage, inspect case drain pressure (max 2.5 bar), and verify manifold pressure relief setpoint.",
+                equipment_model="Rexroth A10VSO",
+                synthetic=True,
+            ),
+        )
         inc_1 = Incident(
             incident_id="INC-2026-001",
             title="Overheating Warning on S7-1200 CPU Module",
@@ -39,7 +63,7 @@ class MockIncidentService(IncidentServiceProtocol):
                 "[MOCK OBSERVATION] Amber DIAG indicator flashing at 2 Hz on front panel.",
                 "[MOCK OBSERVATION] Cabinet ventilation fan appears stationary.",
             ],
-            evidence=[],
+            evidence=[ev1],
         )
         inc_2 = Incident(
             incident_id="INC-2026-002",
@@ -52,7 +76,7 @@ class MockIncidentService(IncidentServiceProtocol):
                 "[MOCK OBSERVATION] Possible fluid pooling under manifold valve B3.",
                 "[MOCK OBSERVATION] Pressure gauge dial reads 35 bar (nominal: 70 bar).",
             ],
-            evidence=[],
+            evidence=[ev2],
         )
         self._incidents[inc_1.incident_id] = inc_1
         self._incidents[inc_2.incident_id] = inc_2
