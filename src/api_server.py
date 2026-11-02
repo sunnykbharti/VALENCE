@@ -56,8 +56,13 @@ def create_app() -> Flask:
 
     # Initialize backend and incident service
     ollama_online = is_ollama_online()
-    use_mock = not ollama_online
-    backend = create_backend(mock=use_mock)
+    generator = None
+    if ollama_online:
+        from backend.generation import LocalOllamaGenerator
+        generator = LocalOllamaGenerator(base_url="http://localhost:11434", model="qwen2.5:latest")
+        logger.info("Live Ollama generator initialized with model 'qwen2.5:latest'")
+
+    backend = create_backend(mock=True)
     incident_service = create_incident_service(mock=True)
 
     # Internal document registry metadata
@@ -140,7 +145,8 @@ def create_app() -> Flask:
         return jsonify({
             "status": "healthy",
             "version": "0.1.0",
-            "mode": "live" if not use_mock else "mock",
+            "mode": "live_llm" if generator else "mock",
+            "model": "qwen2.5:latest" if generator else "none",
             "ollama_online": ollama_online,
             "air_gapped": True,
         })
@@ -163,7 +169,16 @@ def create_app() -> Flask:
             return jsonify({"error": "question parameter must be non-empty"}), 400
 
         try:
-            ans: Answer = backend.answer_question(question=question, equipment_model=equipment_model)
+            evidence = backend.retrieve(question, top_k=3, equipment_model=equipment_model)
+            if generator and evidence:
+                ans: Answer = generator.answer_with_evidence(
+                    question=question,
+                    evidence=evidence,
+                    equipment_model=equipment_model,
+                )
+            else:
+                ans: Answer = backend.answer_question(question=question, equipment_model=equipment_model)
+
             evidence_list = [
                 {
                     "source_id": e.source_id,
@@ -184,6 +199,7 @@ def create_app() -> Flask:
                 "evidence": evidence_list,
                 "insufficient_evidence": ans.insufficient_evidence,
                 "observations": ans.observations or [],
+                "engine": "ollama_qwen2.5" if (generator and evidence) else "mock_engine",
             })
         except Exception as e:
             logger.error("Query processing failed: %s", e, exc_info=True)
@@ -377,3 +393,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
