@@ -1,42 +1,41 @@
-# # Python bytecode & cache
-# __pycache__/
-# *.py[cod]
-# *$py.class
-# .pytest_cache/
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
 
-# # Virtual environments
-# venv/
-# .venv/
-# env/
-# ENV/
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
 
-# # Model weights and caches
-# models/
-# *.bin
-# *.gguf
-# *.safetensors
-# *.onnx
-# .cache/
-# huggingface/
+# Model weights and caches
+models/
+*.bin
+*.gguf
+*.safetensors
+*.onnx
+.cache/
+huggingface/
 
-# # Local databases and indexes
-# data/qdrant_storage/
-# *.sqlite
-# *.db
+# Local databases and indexes
+data/qdrant_storage/
+*.sqlite
+*.db
 
-# # Proprietary/raw documents (allow synthetic & test fixtures)
-# data/raw_docs/
-# *.pdf
-# !tests/fixtures/*.pdf
-# !data/synthetic/*.pdf
+# Proprietary/raw documents (allow synthetic & test fixtures)
+data/raw_docs/
+*.pdf
+!tests/fixtures/*.pdf
+!data/synthetic/*.pdf
 
-# # Environment files & Streamlit secrets
-# .env
-# .env.*
-# !.env.example
-# .streamlit/secrets.toml
+# Environment files & Streamlit secrets
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
 
-# # OS artifacts
-# .DS_Store
-# Thumbs.db
-
+# OS artifacts
+.DS_Store
+Thumbs.db

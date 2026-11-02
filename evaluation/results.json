@@ -1,0 +1,368 @@
+{
+  "metrics": {
+    "sample_size_total": 15,
+    "automated_passes": 1,
+    "automated_failures": 14,
+    "source_retrieval_accuracy": "22.2% (N=11)",
+    "citation_integrity_rate": "6.7% (N=15)",
+    "negative_rejection_accuracy": "100.0% (N=4)",
+    "mean_latency_seconds": 0.0037
+  },
+  "records": [
+    {
+      "query_id": "eval_001",
+      "category": "equipment_sop",
+      "equipment_model": "S7-1200 CPU 1214C",
+      "question": "What is the procedure and authorization required to change the operating state of the Filler Cell PLC (PLC-FIL-02)?",
+      "expected_document": "01_Standard_Operating_Procedure.pdf",
+      "expected_page": 1,
+      "is_unanswerable": false,
+      "latency_seconds": 0.0089,
+      "answer_text": "Inference unverified: Cannot connect to local Ollama daemon at 'http://localhost:11434': <urlopen error [Errno 1] Operation not permitted>. Ensure 'ollama serve' is running locally.",
+      "retrieved_sources": [
+        "doc_b751037672f0#p1#c1#c4 (01_Standard_Operating_Procedure.pdf:p1)",
+        "doc_b751037672f0#p1#c1#c1 (01_Standard_Operating_Procedure.pdf:p1)",
+        "doc_aed0845dcb88#p1#c1#c4 (05_Expert_Technical_Documentation.pdf:p1)"
+      ],
+      "source_match": true,
+      "insufficient_evidence_correct": true,
+      "citations_valid": false,
+      "expected_elements_matched": [],
+      "automated_verdict": "FAIL",
+      "unsupported_claims": [],
+      "reviewer_notes": "Direct SOP lookup from Section 1: Purpose and scope."
+    },
+    {
+      "query_id": "eval_002",
+      "category": "equipment_sop",
+      "equipment_model": "S7-1200 CPU 1214C",
+      "question": "What is the frequency and responsible role for Level A visual walk-around inspection on Demo Bottling Line 2?",
+      "expected_document": "02_Inspection_SOP.pdf",
+      "expected_page": 1,
+      "is_unanswerable": false,
+      "latency_seconds": 0.0032,
+      "answer_text": "Inference unverified: Cannot connect to local Ollama daemon at 'http://localhost:11434': <urlopen error [Errno 1] Operation not permitted>. Ensure 'ollama serve' is running locally.",
+      "retrieved_sources": [
+        "doc_aed0845dcb88#p2#c2#c5 (05_Expert_Technical_Documentation.pdf:p2)",
+        "doc_b7c52b8d3a2a#p2#c2#c2 (02_Inspection_SOP.pdf:p2)",
+        "doc_b751037672f0#p1#c1#c3 (01_Standard_Operating_Procedure.pdf:p1)"
+      ],
+      "source_match": false,
+      "insufficient_evidence_correct": true,
+      "citations_valid": false,
+      "expected_elements_matched": [],
+      "automated_verdict": "FAIL",
+      "unsupported_claims": [
+        "Answer generated without matching required reference page."
+      ],
+      "reviewer_notes": "Lookup from Inspection SOP Level A frequency table."
+    },
+    {
+      "query_id": "eval_003",
+      "category": "cross_manual",
+      "equipment_model": "S7-1200 CPU 1214C",
+      "question": "When a PLC critical fault occurs during operation, what severity level is assigned and what escalation path must be followed?",
+      "expected_document": "03_Demo_Escalation_Policy-1.pdf",
+      "expected_page": 1,
+      "is_unanswerable": false,
+      "latency_seconds": 0.0031,
+      "answer_text": "Inference unverified: Cannot connect to local Ollama daemon at 'http://localhost:11434': <urlopen error [Errno 1] Operation not permitted>. Ensure 'ollama serve' is running locally.",
+      "retrieved_sources": [
+        "doc_aed0845dcb88#p2#c2#c7 (05_Expert_Technical_Documentation.pdf:p2)",
+        "doc_aed0845dcb88#p3#c3#c1 (05_Expert_Technical_Documentation.pdf:p3)",
+        "doc_aed0845dcb88#p1#c1#c1 (05_Expert_Technical_Documentation.pdf:p1)"
+      ],
+      "source_match": false,
+      "insufficient_evidence_correct": true,
+      "citations_valid": false,
+      "expected_elements_matched": [],
+      "automated_verdict": "FAIL",
+      "unsupported_claims": [
+        "Answer generated without matching required reference page."
+      ],
+      "reviewer_notes": "Cross-references escalation policy with PLC fault conditions."
+    },
+    {
+      "query_id": "eval_004",
+      "category": "negative_test",
+      "equipment_model": "S7-1200 CPU 1214C",
+      "question": "What is the exact torque specification for the cylinder head bolts on the high-pressure air compressor?",
+      "expected_document": null,
+      "expected_page": null,
+      "is_unanswerable": true,
+      "latency_seconds": 0.003,
+      "answer_text": "Inference unverified: Cannot connect to local Ollama daemon at 'http://localhost:11434': <urlopen error [Errno 1] Operation not permitted>. Ensure 'ollama serve' is running locally.",
+      "retrieved_sources": [
+        "doc_b751037672f0#p1#c1#c6 (01_Standard_Operating_Procedure.pdf:p1)",
+        "doc_aed0845dcb88#p2#c2#c2 (05_Expert_Technical_Documentation.pdf:p2)",
+        "doc_aed0845dcb88#p1#c1#c5 (05_Expert_Technical_Documentation.pdf:p1)"
+      ],
+      "source_match": true,
+      "insufficient_evidence_correct": true,
+      "citations_valid": false,
+      "expected_elements_matched": [],
+      "automated_verdict": "FAIL",
+      "unsupported_claims": [],
+      "reviewer_notes": "Negative test: Cylinder head bolt torque is absent from available documents; system must flag insufficient_evidence."
+    },
+    {
+      "query_id": "eval_005",
+      "category": "negative_test",
+      "equipment_model": "Atlas-Copco-GA37",
+      "question": "What is the oil change interval for the Atlas Copco GA37 rotary screw compressor?",
+      "expected_document": null,
+      "expected_page": null,
+      "is_unanswerable": true,
+      "latency_seconds": 0.0003,
+      "answer_text": "Insufficient documentary evidence found for equipment 'Atlas-Copco-GA37' to answer the question: 'What is the oil change interval for the Atlas Copco GA37 rotary screw compressor?'.",
+      "retrieved_sources": [],
+      "source_match": true,
+      "insufficient_evidence_correct": true,
+      "citations_valid": true,
+      "expected_elements_matched": [],
+      "automated_verdict": "PASS",
+      "unsupported_claims": [],
+      "reviewer_notes": "Negative test: Equipment model mismatch; model is unsupported in current indexed corpus."
+    },
+    {
+      "query_id": "eval_manual_001",
+      "category": "manual_answerable",
+      "equipment_model": "S7-1200 CPU 1214C",
+      "question": "What are the permissible ambient operating temperature ranges for the S7-1200 CPU when mounted horizontally versus vertically?",
+      "expected_document": "MANNUAL.pdf",
+      "expected_page": 803,
+      "is_unanswerable": false,
+      "latency_seconds": 0.003,
+      "answer_text": "Inference unverified: Cannot connect to local Ollama daemon at 'http://localhost:11434': <urlopen error [Errno 1] Operation not permitted>. Ensure 'ollama serve' is running locally.",
+      "retrieved_sources": [
+        "doc_b751037672f0#p1#c1#c4 (01_Standard_Operating_Procedure.pdf:p1)",
+        "doc_027d02b85fa8#p2#c2#c0 (04_Maintenance_History_File.pdf:p2)",
+        "doc_aed0845dcb88#p1#c1#c4 (05_Expert_Technical_Documentation.pdf:p1)"
+      ],
+      "source_match": false,
+      "insufficient_evidence_correct": true,
+      "citations_valid": false,
+      "expected_elements_matched": [],
+      "automated_verdict": "FAIL",
+      "unsupported_claims": [
+        "Answer generated without matching required reference page."
+      ],
+      "reviewer_notes": "Answerable technical specification lookup from Siemens S7-1200 System Manual Environmental Specifications."
+    },
+    {
+      "query_id": "eval_manual_002",
+      "category": "manual_answerable",
+      "equipment_model": "S7-1200 CPU 1214C",
+      "question": "What is the integrated work memory and load memory capacity of the S7-1200 CPU 1214C?",
+      "expected_document": "MANNUAL.pdf",
+      "expected_page": 820,
+      "is_unanswerable": false,
+      "latency_seconds": 0.003,
+      "answer_text": "Inference unverified: Cannot connect to local Ollama daemon at 'http://localhost:11434': <urlopen error [Errno 1] Operation not permitted>. Ensure 'ollama serve' is running locally.",
+      "retrieved_sources": [
+        "doc_aed0845dcb88#p1#c1#c6 (05_Expert_Technical_Documentation.pdf:p1)",
+        "doc_b751037672f0#p1#c1#c4 (01_Standard_Operating_Procedure.pdf:p1)",
+        "doc_aed0845dcb88#p2#c2#c6 (05_Expert_Technical_Documentation.pdf:p2)"
+      ],
+      "source_match": false,
+      "insufficient_evidence_correct": true,
+      "citations_valid": false,
+      "expected_elements_matched": [],
+      "automated_verdict": "FAIL",
+      "unsupported_claims": [
+        "Answer generated without matching required reference page."
+      ],
+      "reviewer_notes": "Answerable technical parameter for CPU 1214C from Technical Specifications table."
+    },
+    {
+      "query_id": "eval_manual_003",
+      "category": "manual_unanswerable",
+      "equipment_model": "S7-1200 CPU 1214C",
+      "question": "What is the recommended replacement interval for the hydraulic pump rotor seals on the auxiliary fluid loop?",
+      "expected_document": null,
+      "expected_page": null,
+      "is_unanswerable": true,
+      "latency_seconds": 0.003,
+      "answer_text": "Inference unverified: Cannot connect to local Ollama daemon at 'http://localhost:11434': <urlopen error [Errno 1] Operation not permitted>. Ensure 'ollama serve' is running locally.",
+      "retrieved_sources": [
+        "doc_aed0845dcb88#p1#c1#c4 (05_Expert_Technical_Documentation.pdf:p1)",
+        "doc_aed0845dcb88#p1#c1#c6 (05_Expert_Technical_Documentation.pdf:p1)",
+        "doc_aed0845dcb88#p2#c2#c5 (05_Expert_Technical_Documentation.pdf:p2)"
+      ],
+      "source_match": true,
+      "insufficient_evidence_correct": true,
+      "citations_valid": false,
+      "expected_elements_matched": [],
+      "automated_verdict": "FAIL",
+      "unsupported_claims": [],
+      "reviewer_notes": "Unanswerable query: The S7-1200 manual covers programmable controllers and electronic modules; hydraulic rotor seals are completely absent."
+    },
+    {
+      "query_id": "eval_manual_004",
+      "category": "manual_unanswerable",
+      "equipment_model": "S7-1200 CPU 1214C",
+      "question": "What is the recommended ISO VG viscosity rating for lubricating the mechanical reduction gear box?",
+      "expected_document": null,
+      "expected_page": null,
+      "is_unanswerable": true,
+      "latency_seconds": 0.003,
+      "answer_text": "Inference unverified: Cannot connect to local Ollama daemon at 'http://localhost:11434': <urlopen error [Errno 1] Operation not permitted>. Ensure 'ollama serve' is running locally.",
+      "retrieved_sources": [
+        "doc_b751037672f0#p1#c1#c4 (01_Standard_Operating_Procedure.pdf:p1)",
+        "doc_027d02b85fa8#p1#c1#c0 (04_Maintenance_History_File.pdf:p1)",
+        "doc_cf69b8810cbf#p1#c1#c4 (03_Demo_Escalation_Policy-1.pdf:p1)"
+      ],
+      "source_match": true,
+      "insufficient_evidence_correct": true,
+      "citations_valid": false,
+      "expected_elements_matched": [],
+      "automated_verdict": "FAIL",
+      "unsupported_claims": [],
+      "reviewer_notes": "Unanswerable query: Mechanical gearbox lubrication is outside the scope of the PLC manual."
+    },
+    {
+      "query_id": "eval_manual_005",
+      "category": "equipment_ambiguous",
+      "equipment_model": null,
+      "question": "How many onboard high-speed counters (HSC) are supported on the S7-1200 CPU?",
+      "expected_document": "MANNUAL.pdf",
+      "expected_page": 810,
+      "is_unanswerable": false,
+      "latency_seconds": 0.0029,
+      "answer_text": "Inference unverified: Cannot connect to local Ollama daemon at 'http://localhost:11434': <urlopen error [Errno 1] Operation not permitted>. Ensure 'ollama serve' is running locally.",
+      "retrieved_sources": [
+        "doc_027d02b85fa8#p1#c1#c1 (04_Maintenance_History_File.pdf:p1)",
+        "doc_b751037672f0#p1#c1#c3 (01_Standard_Operating_Procedure.pdf:p1)",
+        "doc_aed0845dcb88#p2#c2#c3 (05_Expert_Technical_Documentation.pdf:p2)"
+      ],
+      "source_match": false,
+      "insufficient_evidence_correct": true,
+      "citations_valid": false,
+      "expected_elements_matched": [],
+      "automated_verdict": "FAIL",
+      "unsupported_claims": [
+        "Answer generated without matching required reference page."
+      ],
+      "reviewer_notes": "Equipment-ambiguous query: The S7-1200 family varies by CPU model. Equipment model is unspecified (null); answer must present breakdown across models."
+    },
+    {
+      "query_id": "eval_manual_006",
+      "category": "equipment_ambiguous",
+      "equipment_model": null,
+      "question": "What is the maximum digital input and digital output (DI/DO) channel count provided directly on the CPU?",
+      "expected_document": "MANNUAL.pdf",
+      "expected_page": 810,
+      "is_unanswerable": false,
+      "latency_seconds": 0.003,
+      "answer_text": "Inference unverified: Cannot connect to local Ollama daemon at 'http://localhost:11434': <urlopen error [Errno 1] Operation not permitted>. Ensure 'ollama serve' is running locally.",
+      "retrieved_sources": [
+        "doc_cf69b8810cbf#p2#c2#c1 (03_Demo_Escalation_Policy-1.pdf:p2)",
+        "doc_aed0845dcb88#p1#c1#c1 (05_Expert_Technical_Documentation.pdf:p1)",
+        "doc_aed0845dcb88#p2#c2#c2 (05_Expert_Technical_Documentation.pdf:p2)"
+      ],
+      "source_match": false,
+      "insufficient_evidence_correct": true,
+      "citations_valid": false,
+      "expected_elements_matched": [],
+      "automated_verdict": "FAIL",
+      "unsupported_claims": [
+        "Answer generated without matching required reference page."
+      ],
+      "reviewer_notes": "Equipment-ambiguous query: Unspecified CPU model requires enumerating onboard I/O counts across 1211C, 1212C, 1214C, and 1215C."
+    },
+    {
+      "query_id": "eval_vision_001",
+      "category": "visual_inspection",
+      "equipment_model": "S7-1200 CPU 1214C",
+      "question": "Inspect the attached photo of the PLC indicator LEDs. What is the current operating state shown and does any LED indicate a fault?",
+      "expected_document": "01_Standard_Operating_Procedure.pdf",
+      "expected_page": 1,
+      "is_unanswerable": false,
+      "latency_seconds": 0.0077,
+      "answer_text": "Inference unverified: Cannot connect to local Ollama daemon at 'http://localhost:11434': <urlopen error [Errno 1] Operation not permitted>. Ensure 'ollama serve' is running locally.",
+      "retrieved_sources": [
+        "doc_b751037672f0#p1#c1#c4 (01_Standard_Operating_Procedure.pdf:p1)",
+        "doc_aed0845dcb88#p1#c1#c4 (05_Expert_Technical_Documentation.pdf:p1)",
+        "doc_b751037672f0#p2#c2#c1 (01_Standard_Operating_Procedure.pdf:p2)"
+      ],
+      "source_match": true,
+      "insufficient_evidence_correct": true,
+      "citations_valid": false,
+      "expected_elements_matched": [],
+      "automated_verdict": "FAIL",
+      "unsupported_claims": [],
+      "reviewer_notes": "Normal-state image. Synthetic fixture with clearly labelled SYNTHETIC DEMO watermark. Observations should be flagged tentative."
+    },
+    {
+      "query_id": "eval_vision_002",
+      "category": "visual_inspection_failure",
+      "equipment_model": null,
+      "question": "What equipment state does this panel image show?",
+      "expected_document": null,
+      "expected_page": null,
+      "is_unanswerable": true,
+      "latency_seconds": 0.004,
+      "answer_text": "Inference unverified: Cannot connect to local Ollama daemon at 'http://localhost:11434': <urlopen error [Errno 1] Operation not permitted>. Ensure 'ollama serve' is running locally.",
+      "retrieved_sources": [
+        "doc_b7c52b8d3a2a#p1#c1#c4 (02_Inspection_SOP.pdf:p1)",
+        "doc_027d02b85fa8#p1#c1#c1 (04_Maintenance_History_File.pdf:p1)",
+        "doc_cf69b8810cbf#p1#c1#c3 (03_Demo_Escalation_Policy-1.pdf:p1)"
+      ],
+      "source_match": true,
+      "insufficient_evidence_correct": true,
+      "citations_valid": false,
+      "expected_elements_matched": [],
+      "automated_verdict": "FAIL",
+      "unsupported_claims": [],
+      "reviewer_notes": "Blurry image test: System must report image quality too low for reliable interpretation. No fabricated observations should be returned."
+    },
+    {
+      "query_id": "eval_vision_003",
+      "category": "visual_inspection_no_match",
+      "equipment_model": null,
+      "question": "What SOP procedure applies to this equipment?",
+      "expected_document": null,
+      "expected_page": null,
+      "is_unanswerable": true,
+      "latency_seconds": 0.0036,
+      "answer_text": "Inference unverified: Cannot connect to local Ollama daemon at 'http://localhost:11434': <urlopen error [Errno 1] Operation not permitted>. Ensure 'ollama serve' is running locally.",
+      "retrieved_sources": [
+        "doc_cf69b8810cbf#p1#c1#c2 (03_Demo_Escalation_Policy-1.pdf:p1)",
+        "doc_b7c52b8d3a2a#p2#c2#c3 (02_Inspection_SOP.pdf:p2)",
+        "doc_027d02b85fa8#p1#c1#c4 (04_Maintenance_History_File.pdf:p1)"
+      ],
+      "source_match": true,
+      "insufficient_evidence_correct": true,
+      "citations_valid": false,
+      "expected_elements_matched": [],
+      "automated_verdict": "FAIL",
+      "unsupported_claims": [],
+      "reviewer_notes": "Unknown equipment image: System must declare no documentation match and insufficient_evidence. Must not invent procedures."
+    },
+    {
+      "query_id": "eval_vision_004",
+      "category": "visual_inspection_ambiguous_identity",
+      "equipment_model": null,
+      "question": "Which startup procedure applies to this CPU?",
+      "expected_document": null,
+      "expected_page": null,
+      "is_unanswerable": false,
+      "latency_seconds": 0.0036,
+      "answer_text": "Inference unverified: Cannot connect to local Ollama daemon at 'http://localhost:11434': <urlopen error [Errno 1] Operation not permitted>. Ensure 'ollama serve' is running locally.",
+      "retrieved_sources": [
+        "doc_cf69b8810cbf#p1#c1#c2 (03_Demo_Escalation_Policy-1.pdf:p1)",
+        "doc_b7c52b8d3a2a#p2#c2#c3 (02_Inspection_SOP.pdf:p2)",
+        "doc_027d02b85fa8#p1#c1#c4 (04_Maintenance_History_File.pdf:p1)"
+      ],
+      "source_match": false,
+      "insufficient_evidence_correct": true,
+      "citations_valid": false,
+      "expected_elements_matched": [],
+      "automated_verdict": "FAIL",
+      "unsupported_claims": [
+        "Answer generated without matching required reference page."
+      ],
+      "reviewer_notes": "Ambiguous equipment identity test: System should report that model variant cannot be determined from image alone, suggest physical label verification, and present model-family general guidance if available."
+    }
+  ]
+}
