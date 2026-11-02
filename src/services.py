@@ -60,5 +60,15 @@ def create_backend(
     Returns:
         An instance conforming to BackendServiceProtocol.
     """
-    raise NotImplementedError("create_backend must be implemented in Member B backend module")
+    if mock:
+        from backend.mock_backend import MockBackend
+        return MockBackend(collection_name=collection_name or "mock_collection")
+
+    from backend.service import RealBackend
+    from config import load_config
+    cfg = load_config()
+    if collection_name:
+        from dataclasses import replace
+        cfg = replace(cfg, collection_name=collection_name)
+    return RealBackend(config=cfg)
 

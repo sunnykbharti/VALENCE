@@ -1,0 +1,22 @@
+# VALENCE Minimal Approved Dependency Specification (Member B)
+# Note: Do not install until approved as per AGENTS.md rules.
+
+# Document Extraction (Member A)
+pypdf==4.3.1
+
+# Vector Database (Member B) - Local embedded / on-disk storage
+qdrant-client==1.11.1
+
+# Embeddings (Member B) - Lightweight local ONNX inference without heavy PyTorch
+fastembed==0.3.6
+
+# Alternative embedding engine (if PyTorch is preferred by team)
+# sentence-transformers==3.0.1
+# torch==2.3.1
+
+# User Interface (Member A)
+streamlit==1.38.0
+
+# Configuration & Environment
+python-dotenv==1.0.1
+
