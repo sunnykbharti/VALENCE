@@ -202,3 +202,4 @@ class GenerationProtocol(Protocol):
             FileNotFoundError: If image_path does not exist.
         """
         ...
+

@@ -57,3 +57,4 @@ def create_backend(
         An instance conforming to BackendServiceProtocol.
     """
     raise NotImplementedError("create_backend must be implemented in Member B backend module")
+
