@@ -150,7 +150,7 @@ class TestVisionWorkflow(unittest.TestCase):
         """Task: Missing vision model reports blocker and preserves text-only retrieval."""
         # Vision engine pointing to unreachable daemon without custom function
         vision_engine = LocalVisionEngine(
-            base_url="http://127.0.0.1:11434",
+            base_url="http://127.0.0.1:19999",
             model="llama3.2-vision:11b",
         )
         is_avail, reason = vision_engine.check_availability()
