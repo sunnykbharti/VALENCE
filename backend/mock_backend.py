@@ -98,6 +98,22 @@ class MockBackend:
             errors=errors,
         )
 
+    def delete_document(
+        self,
+        filename: Optional[str] = None,
+        document_id: Optional[str] = None,
+    ) -> int:
+        """Removes all chunks belonging to a document from mock storage."""
+        if not filename and not document_id:
+            return 0
+        keys_to_del = [
+            cid for cid, c in self._store.items()
+            if (filename and c.filename == filename) or (document_id and c.document_id == document_id)
+        ]
+        for k in keys_to_del:
+            del self._store[k]
+        return len(keys_to_del)
+
     def retrieve(
         self,
         question: str,

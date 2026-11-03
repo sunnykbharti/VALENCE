@@ -335,3 +335,55 @@ class PersistentVectorStore:
             cursor.execute("SELECT COUNT(*) FROM chunks")
             return int(cursor.fetchone()[0])
 
+    def delete_document_chunks(
+        self,
+        filename: Optional[str] = None,
+        document_id: Optional[str] = None,
+    ) -> int:
+        """Deletes all chunks belonging to a document from persistent vector store and Qdrant.
+
+        Returns:
+            Number of chunks removed.
+        """
+        if not filename and not document_id:
+            return 0
+
+        with sqlite3.connect(self._db_path) as conn:
+            cursor = conn.cursor()
+            conditions = []
+            params = []
+            if filename:
+                conditions.append("filename = ?")
+                params.append(filename)
+            if document_id:
+                conditions.append("document_id = ?")
+                params.append(document_id)
+
+            where_clause = " OR ".join(conditions)
+            cursor.execute(f"SELECT COUNT(*) FROM chunks WHERE {where_clause}", tuple(params))
+            deleted_count = int(cursor.fetchone()[0])
+
+            cursor.execute(f"DELETE FROM chunks WHERE {where_clause}", tuple(params))
+            conn.commit()
+
+        if self._qdrant_client is not None:
+            try:
+                from qdrant_client.http import models
+                filters = []
+                if filename:
+                    filters.append(models.FieldCondition(key="filename", match=models.MatchValue(value=filename)))
+                if document_id:
+                    filters.append(models.FieldCondition(key="document_id", match=models.MatchValue(value=document_id)))
+                if filters:
+                    self._qdrant_client.delete(
+                        collection_name=self.collection_name,
+                        points_selector=models.FilterSelector(
+                            filter=models.Filter(should=filters)
+                        ),
+                    )
+            except Exception as e:
+                logger.warning("Error deleting points from Qdrant: %s", e)
+
+        logger.info("Deleted %d chunks for document filename=%s doc_id=%s", deleted_count, filename, document_id)
+        return deleted_count
+

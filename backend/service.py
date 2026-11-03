@@ -104,6 +104,14 @@ class RealBackend:
         embeddings = self.embedding_engine.embed_texts(texts)
         return self.vector_store.index_chunks_with_embeddings(chunks, embeddings)
 
+    def delete_document(
+        self,
+        filename: Optional[str] = None,
+        document_id: Optional[str] = None,
+    ) -> int:
+        """Purges document chunks from the persistent vector store."""
+        return self.vector_store.delete_document_chunks(filename=filename, document_id=document_id)
+
     def retrieve(
         self,
         question: str,

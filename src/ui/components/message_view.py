@@ -8,10 +8,11 @@ import streamlit as st
 from contracts import Answer
 from src.ui.components.evidence_drawer import render_evidence_drawer
 from src.ui.components.observations_panel import render_visual_observations
+from src.ui.components.tts_player import render_tts_button
 
 
-def render_assistant_message(msg: dict, use_mock: bool) -> None:
-    """Renders a complete assistant chat message including citations and observations."""
+def render_assistant_message(msg: dict, use_mock: bool, msg_idx: int = 0) -> None:
+    """Renders a complete assistant chat message including citations, observations, and TTS audio."""
     answer: Answer = msg["answer"]
     image_name: Optional[str] = msg.get("image_name")
 
@@ -26,6 +27,7 @@ def render_assistant_message(msg: dict, use_mock: bool) -> None:
             )
 
         st.markdown(answer.text)
+        render_tts_button(answer.text, key_suffix=f"msg_{msg_idx}")
         render_evidence_drawer(answer)
         render_visual_observations(answer, use_mock)
 

@@ -267,7 +267,8 @@ class TestStreamlitApp(unittest.TestCase):
         """Clicking Index Document without a file shows a clear error."""
         app = AppTest.from_file("src/ui/app.py", default_timeout=10)
         app.run()
-        app.button[0].click().run()
+        idx_btn = [b for b in app.button if "Index" in b.label][0]
+        idx_btn.click().run()
         self.assertFalse(app.exception)
         error_texts = [e.value for e in app.error]
         self.assertTrue(any("Please choose a PDF file" in e for e in error_texts))
@@ -289,7 +290,8 @@ class TestStreamlitApp(unittest.TestCase):
         app.run()
         app.chat_input[0].set_value("Test message").run()
         self.assertEqual(len(app.chat_message), 2)
-        app.button[1].click().run()
+        clear_btn = [b for b in app.button if "Clear" in b.label][0]
+        clear_btn.click().run()
         self.assertFalse(app.exception)
         self.assertEqual(len(app.chat_message), 0)
 
@@ -299,7 +301,7 @@ class TestStreamlitApp(unittest.TestCase):
         app.run()
         app.chat_input[0].set_value("First question").run()
         self.assertEqual(len(app.chat_message), 2)
-        app.checkbox[1].set_value(True).run()
+        app.checkbox[0].set_value(True).run()
         self.assertFalse(app.exception)
         self.assertEqual(len(app.chat_message), 2)
 
@@ -310,6 +312,69 @@ class TestStreamlitApp(unittest.TestCase):
         app.chat_input[0].set_value("Describe the emergency shutdown sequence.").run()
         self.assertFalse(app.exception)
         self.assertEqual(len(app.chat_message), 2)
+
+    def test_render_image_compatibility(self):
+        """Image helper renders without TypeError across Streamlit versions."""
+        import tempfile
+        from PIL import Image
+        from src.ui.views.modern_view import _render_image
+        with tempfile.NamedTemporaryFile(suffix=".png") as f:
+            Image.new("RGB", (50, 50), color="red").save(f.name)
+            try:
+                _render_image(f.name, caption="Test Caption")
+            except Exception as e:
+                self.assertNotIsInstance(e, TypeError)
+
+    def test_document_removal_clears_cache_and_stops_retrieval(self):
+        """When a document is removed, the backend purges its chunks and stops answering from it."""
+        from backend.mock_backend import MockBackend
+        from contracts import Chunk
+        backend = MockBackend()
+        c = Chunk(
+            chunk_id="chunk_test_rem_01",
+            document_id="doc_rem_01",
+            filename="special_sop.pdf",
+            page=1,
+            text="The emergency pressure cutoff valve is valve 42.",
+        )
+        backend.index_chunks([c])
+        # Retrieve before deletion
+        ev = backend.retrieve("emergency pressure cutoff valve")
+        self.assertEqual(len(ev), 1)
+        self.assertEqual(ev[0].chunk.chunk_id, "chunk_test_rem_01")
+
+        # Delete document
+        deleted = backend.delete_document(filename="special_sop.pdf")
+        self.assertEqual(deleted, 1)
+
+        # Retrieve after deletion
+        ev_after = backend.retrieve("emergency pressure cutoff valve")
+        self.assertEqual(len(ev_after), 0)
+
+        # Answer after deletion
+        ans = backend.answer_question("Where is the emergency pressure cutoff valve?")
+        self.assertTrue(ans.insufficient_evidence)
+
+    def test_persistent_vector_store_delete_document_chunks(self):
+        """PersistentVectorStore purges chunks from SQLite and Qdrant when deleted."""
+        import tempfile
+        from backend.vector_store import PersistentVectorStore
+        from contracts import Chunk
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = PersistentVectorStore(storage_path=tmpdir, collection_name="test_col")
+            c = Chunk(
+                chunk_id="c_del_1",
+                document_id="doc_del_1",
+                filename="remove_me.pdf",
+                page=1,
+                text="Some maintenance procedure",
+            )
+            store.index_chunks_with_embeddings([c], [[0.1] * 384])
+            self.assertEqual(store.count(), 1)
+
+            deleted = store.delete_document_chunks(filename="remove_me.pdf")
+            self.assertEqual(deleted, 1)
+            self.assertEqual(store.count(), 0)
 
 
 if __name__ == "__main__":

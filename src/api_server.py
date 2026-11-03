@@ -135,7 +135,9 @@ def create_app() -> Flask:
                 "synthetic": c.synthetic,
             })
 
-    seed_default_knowledge()
+    # Do not auto-seed dummy knowledge; start with clean empty index
+    indexed_documents_meta.clear()
+    chunks_by_document.clear()
 
     # ── Routes ─────────────────────────────────────────────────────────────
 

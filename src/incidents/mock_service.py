@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 class MockIncidentService(IncidentServiceProtocol):
     """In-memory mock incident service conforming to IncidentServiceProtocol."""
 
-    def __init__(self, populate_defaults: bool = True) -> None:
+    def __init__(self, populate_defaults: bool = False) -> None:
         self._incidents: dict[str, Incident] = {}
         self._counter: int = 100
         if populate_defaults:

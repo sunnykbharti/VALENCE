@@ -47,7 +47,7 @@ def get_or_create_backend(use_mock: bool) -> tuple[Optional[BackendServiceProtoc
 
 
 def init_session_state() -> None:
-    """Initializes persistent session state keys."""
+    """Initializes persistent session state keys with SQLite recovery across refreshes."""
     import os
     import sys
     try:
@@ -56,6 +56,12 @@ def init_session_state() -> None:
     except ImportError:
         pass
 
+    from src.ui.persistence import (
+        load_chat_history,
+        load_indexed_documents,
+        load_user_session_state,
+    )
+
     is_testing = "unittest" in sys.modules or any("test" in arg.lower() for arg in sys.argv)
     raw_mock = os.getenv("VALENCE_MOCK_MODE", "0").lower().strip()
     if is_testing:
@@ -63,29 +69,46 @@ def init_session_state() -> None:
     else:
         default_mock = raw_mock in ("1", "true", "yes")
 
+    # Per-user persistent session identifier (customizable via URL ?user=operator1)
+    session_id = "default_user"
+    try:
+        if hasattr(st, "query_params") and "user" in st.query_params:
+            session_id = str(st.query_params["user"]).strip() or "default_user"
+    except Exception:
+        pass
+
+    # Attempt to load persistent state from SQLite for this user
+    saved_meta = load_user_session_state(session_id) if not is_testing else None
+    saved_chat = load_chat_history(session_id) if not is_testing else []
+    saved_docs, saved_chunks = load_indexed_documents(session_id) if not is_testing else ({}, [])
+
+    active_inc = saved_meta["active_incident_id"] if saved_meta else None
+    restored_mock = saved_meta["use_mock"] if saved_meta is not None else default_mock
+
     defaults: dict = {
-        "chat_history": [],
-        "indexed_docs": {},
+        "session_id": session_id,
+        "chat_history": saved_chat,
+        "indexed_docs": saved_docs,
         "backend": None,
-        "use_mock": default_mock,
+        "use_mock": restored_mock,
         "last_indexing_summary": None,
         "backend_error": None,
-        "ui_view": "classic",  # Default to classic for backward compatibility, toggleable via navbar
+        "ui_view": "modern",  # Only 1 view: Modern UI
         # Vision state
-        "vision_image_path": None,
-        "vision_image_name": None,
-        "vision_mode_active": False,
-        "cached_chunks": [],
+        "vision_image_path": saved_meta["vision_image_path"] if saved_meta else None,
+        "vision_image_name": saved_meta["vision_image_name"] if saved_meta else None,
+        "vision_mode_active": saved_meta["vision_mode_active"] if saved_meta else False,
+        "cached_chunks": saved_chunks,
         # Phase 2: Incident-oriented workflow
-        "active_incident_id": None,
+        "active_incident_id": active_inc,
     }
     for key, value in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = value
 
-    if "incident_service" not in st.session_state or st.session_state.get("incident_service_is_mock") != default_mock:
+    if "incident_service" not in st.session_state or st.session_state.get("incident_service_is_mock") != restored_mock:
         from src.services import create_incident_service
-        st.session_state["incident_service"] = create_incident_service(mock=default_mock)
-        st.session_state["incident_service_is_mock"] = default_mock
+        st.session_state["incident_service"] = create_incident_service(mock=restored_mock, populate_defaults=is_testing)
+        st.session_state["incident_service_is_mock"] = restored_mock
 
 

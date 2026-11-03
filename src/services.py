@@ -74,18 +74,23 @@ def create_backend(
     return RealBackend(config=cfg)
 
 
-def create_incident_service(mock: bool = True, db_path: Optional[str] = None):
+def create_incident_service(
+    mock: bool = True,
+    db_path: Optional[str] = None,
+    populate_defaults: bool = False,
+):
     """Factory creating the incident management service for Phase 2.
 
     Args:
         mock: If True, returns the in-memory MockIncidentService with canned industrial incidents.
               If False, returns persistent SQLiteIncidentService using local SQLite database.
         db_path: Optional path to the SQLite database file when mock=False.
+        populate_defaults: If True, seeds initial synthetic incidents for testing.
     """
     if mock:
         from src.incidents import MockIncidentService
-        return MockIncidentService(populate_defaults=True)
+        return MockIncidentService(populate_defaults=populate_defaults)
 
     from src.incidents import SQLiteIncidentService
-    return SQLiteIncidentService(db_path=db_path or "data/incidents.db", populate_defaults=True)
+    return SQLiteIncidentService(db_path=db_path or "data/incidents.db", populate_defaults=populate_defaults)
 

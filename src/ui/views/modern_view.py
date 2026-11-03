@@ -12,10 +12,18 @@ from pathlib import Path
 from typing import Optional
 
 import streamlit as st
+import streamlit.components.v1 as components
 from contracts import Answer, CropInspectionResult, IndexingSummary
 from src.services import BackendServiceProtocol, create_ingestor
 from src.ui.components.message_view import render_assistant_message, render_user_message
 from src.ui.components.incident_panel import render_incident_controls
+from src.ui.persistence import (
+    clear_chat_history,
+    delete_indexed_document,
+    save_chat_message,
+    save_indexed_document,
+    save_user_session_state,
+)
 from src.utils.image_crop import crop_image_region, draw_user_region_overlay
 
 logger = logging.getLogger(__name__)
@@ -23,6 +31,14 @@ logger = logging.getLogger(__name__)
 _SUPPORTED_IMAGE_TYPES = ["png", "jpg", "jpeg", "bmp", "tiff", "webp"]
 _SUPPORTED_IMAGE_EXTS = {f".{t}" for t in _SUPPORTED_IMAGE_TYPES}
 _MAX_IMAGE_SIZE_MB = 20
+
+
+def _render_image(image, caption: Optional[str] = None) -> None:
+    """Renders image compatible across Streamlit versions (1.38 use_column_width vs 1.40 use_container_width)."""
+    try:
+        st.image(image, caption=caption, use_column_width=True)
+    except TypeError:
+        st.image(image, caption=caption, use_container_width=True)
 
 
 def render_modern_view(backend: Optional[BackendServiceProtocol], backend_error: Optional[str]) -> None:
@@ -46,7 +62,7 @@ def render_modern_view(backend: Optional[BackendServiceProtocol], backend_error:
         cols = st.columns([6, 2])
         with cols[0]:
             if use_mock:
-                st.caption("🔶 **Running in Mock Backend Mode** (Simulated retrieval and responses)")
+                st.warning("⚠️ RUNNING IN MOCK BACKEND MODE: Responses are generated from in-memory test fixtures.")
             elif backend_error:
                 st.error(f"❌ Backend Unavailable: {backend_error}")
             else:
@@ -54,7 +70,9 @@ def render_modern_view(backend: Optional[BackendServiceProtocol], backend_error:
 
         with cols[1]:
             if st.button("🗑️ Clear Chat", key="modern_clear_chat", help="Wipe conversation history"):
+                session_id = st.session_state.get("session_id", "default_user")
                 st.session_state.chat_history = []
+                clear_chat_history(session_id)
                 st.rerun()
 
         # Active incident alert (Phase 2)
@@ -79,17 +97,6 @@ def render_modern_view(backend: Optional[BackendServiceProtocol], backend_error:
                 "| Your next prompt will execute multimodal analysis."
             )
 
-        # Voice input indicator banner
-        st.markdown(
-            """
-            <div class="voice-banner">
-                <span style="font-size:1.15rem;">🎙️</span>
-                <span><strong>Factory Floor Hands-Free:</strong> Speak technical queries directly using device dictation (Mac: <code>Fn + Fn</code>, Windows: <code>Win + H</code>, Mobile: <code>🎤 Mic</code>). Every query is strictly grounded against indexed SOPs.</span>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
         # Chat message stream
         if not st.session_state.chat_history:
             st.markdown(
@@ -105,29 +112,222 @@ def render_modern_view(backend: Optional[BackendServiceProtocol], backend_error:
                 unsafe_allow_html=True,
             )
 
-            # Quick prompt suggestions linked directly to indexed manuals
-            st.caption("💡 **Quick Manual & SOP Inquiries:**")
-            quick_cols = st.columns(3)
-            with quick_cols[0]:
-                if st.button("🚦 S7-1200 LED Diagnostic", help="What does solid yellow color of led in CPU mean?", use_container_width=True):
-                    _process_query("What does solid yellow color of led in CPU mean?", backend)
-            with quick_cols[1]:
-                if st.button("🔧 A10VSO Overhaul Steps", help="What are the disassembly and safety procedures for Rexroth A10VSO pump?", use_container_width=True):
-                    _process_query("What are the disassembly and safety procedures for the Rexroth A10VSO overhaul?", backend)
-            with quick_cols[2]:
-                if st.button("📋 Compressor SOP Safety", help="What are the safety and authorization precautions for operating the compressor?", use_container_width=True):
-                    _process_query("What are the authorization and safety precautions before starting the compressor?", backend)
+            if st.session_state.indexed_docs:
+                st.caption(f"💡 **Grounded retrieval active across {len(st.session_state.indexed_docs)} indexed document(s). Ask any technical question below.**")
+            else:
+                st.info("📄 **No documents indexed yet.** Upload an equipment manual or SOP in the **📚 Knowledge Base & Indexing** tab to begin asking grounded questions.")
 
-        for msg in st.session_state.chat_history:
+        for i, msg in enumerate(st.session_state.chat_history):
             if msg["role"] == "user":
                 render_user_message(msg)
             elif msg["role"] == "assistant":
-                render_assistant_message(msg, use_mock=use_mock)
+                render_assistant_message(msg, use_mock=use_mock, msg_idx=i)
 
-        # Chat Input
-        prompt = st.chat_input("Ask a question about equipment operation, troubleshooting, or SOPs...", key="modern_chat_input")
+        # Chat Input with In-Box Microphone Option (Voice Dictation active)
+        prompt = st.chat_input("Ask a question or click 🎙️ to dictate query...", key="modern_chat_input")
         if prompt:
             _process_query(prompt, backend)
+
+        # Dynamic query-box microphone button injection
+        components.html(
+            """
+            <script>
+            (function() {
+                let isRecording = false;
+                let activeRecognizer = null;
+
+                function getSpeechRec() {
+                    return window.SpeechRecognition || window.webkitSpeechRecognition ||
+                           (window.parent && (window.parent.SpeechRecognition || window.parent.webkitSpeechRecognition));
+                }
+
+                function updateMicUi(recording, btn, container) {
+                    if (!btn) return;
+                    if (recording) {
+                        btn.innerHTML = '🔴';
+                        btn.style.borderColor = '#ef4444';
+                        btn.style.boxShadow = '0 0 12px rgba(239, 68, 68, 0.8)';
+                        btn.style.background = 'rgba(239, 68, 68, 0.2)';
+                        btn.title = 'Listening... Click to stop';
+                        const ta = container ? container.querySelector('textarea') : null;
+                        if (ta) ta.placeholder = '🔴 Listening... Speak clearly now.';
+                    } else {
+                        btn.innerHTML = '🎙️';
+                        btn.style.borderColor = 'rgba(56, 189, 248, 0.4)';
+                        btn.style.boxShadow = 'none';
+                        btn.style.background = 'transparent';
+                        btn.title = 'Speak query (Voice Dictation)';
+                        const ta = container ? container.querySelector('textarea') : null;
+                        if (ta) ta.placeholder = 'Ask a question or click 🎙️ to dictate query...';
+                    }
+                }
+
+                function toggleVoice(btn, container) {
+                    const ta = container ? container.querySelector('textarea') : null;
+
+                    if (isRecording) {
+                        if (activeRecognizer) {
+                            try { activeRecognizer.stop(); } catch(e) {}
+                        }
+                        isRecording = false;
+                        updateMicUi(false, btn, container);
+                        if (ta) ta.focus();
+                        return;
+                    }
+
+                    const SpeechRec = getSpeechRec();
+                    if (!SpeechRec) {
+                        alert(
+                            "Voice Dictation:\\n\\n" +
+                            "Web Speech is natively supported in Google Chrome, Edge, and Safari.\\n" +
+                            "On other browsers, press your OS dictation shortcut directly into this box:\\n" +
+                            "- Mac: Press Fn twice (Fn + Fn)\\n" +
+                            "- Windows: Press Win + H"
+                        );
+                        if (ta) ta.focus();
+                        return;
+                    }
+
+                    try {
+                        const rec = new SpeechRec();
+                        rec.continuous = false;
+                        rec.interimResults = true;
+                        rec.lang = 'en-US';
+
+                        rec.onstart = function() {
+                            isRecording = true;
+                            updateMicUi(true, btn, container);
+                        };
+
+                        rec.onresult = function(event) {
+                            let transcript = '';
+                            for (let i = 0; i < event.results.length; i++) {
+                                transcript += event.results[i][0].transcript;
+                            }
+                            if (ta) {
+                                const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set ||
+                                                     (window.parent && Object.getOwnPropertyDescriptor(window.parent.HTMLTextAreaElement.prototype, 'value')?.set);
+                                if (nativeSetter) {
+                                    nativeSetter.call(ta, transcript);
+                                } else {
+                                    ta.value = transcript;
+                                }
+                                ta.dispatchEvent(new Event('input', { bubbles: true }));
+                                ta.dispatchEvent(new Event('change', { bubbles: true }));
+                            }
+                        };
+
+                        rec.onerror = function(err) {
+                            console.warn('[VALENCE Voice] Recognition error:', err);
+                            isRecording = false;
+                            updateMicUi(false, btn, container);
+                            if (err.error === 'not-allowed') {
+                                alert(
+                                    "Microphone access blocked by browser.\\n\\n" +
+                                    "To enable:\\n" +
+                                    "1. Click the site settings / lock icon 🔒 next to 'localhost:8501' in your Chrome address bar.\\n" +
+                                    "2. Set 'Microphone' to 'Allow'.\\n" +
+                                    "3. Refresh the page."
+                                );
+                            }
+                        };
+
+                        rec.onend = function() {
+                            isRecording = false;
+                            updateMicUi(false, btn, container);
+                            if (ta) ta.focus();
+                        };
+
+                        activeRecognizer = rec;
+                        rec.start();
+                    } catch(err) {
+                        console.warn('[VALENCE Voice] Start failed:', err);
+                        isRecording = false;
+                        updateMicUi(false, btn, container);
+                    }
+                }
+
+                function setupMicInDoc(doc) {
+                    if (!doc) return;
+                    const container = doc.querySelector('div[data-testid="stChatInput"]');
+                    if (!container) return;
+
+                    let micBtn = container.querySelector('#valence-voice-mic-btn');
+                    if (!micBtn) {
+                        micBtn = doc.createElement('button');
+                        micBtn.id = 'valence-voice-mic-btn';
+                        micBtn.type = 'button';
+                        micBtn.title = 'Speak query (Voice Dictation)';
+                        micBtn.innerHTML = '🎙️';
+                        micBtn.setAttribute('style', [
+                            'position: absolute',
+                            'right: 48px',
+                            'bottom: 7px',
+                            'width: 32px',
+                            'height: 32px',
+                            'border-radius: 8px',
+                            'background: transparent',
+                            'border: 1px solid rgba(56, 189, 248, 0.4)',
+                            'cursor: pointer',
+                            'font-size: 1.15rem',
+                            'display: inline-flex',
+                            'align-items: center',
+                            'justify-content: center',
+                            'z-index: 99999',
+                            'pointer-events: auto',
+                            'padding: 0',
+                            'transition: all 0.2s ease',
+                            'user-select: none'
+                        ].join(' !important;') + ' !important;');
+
+                        micBtn.onmouseenter = function() {
+                            if (!isRecording) {
+                                micBtn.style.borderColor = '#38bdf8';
+                                micBtn.style.background = 'rgba(56, 189, 248, 0.1)';
+                            }
+                        };
+
+                        micBtn.onmouseleave = function() {
+                            if (!isRecording) {
+                                micBtn.style.borderColor = 'rgba(56, 189, 248, 0.4)';
+                                micBtn.style.background = 'transparent';
+                            }
+                        };
+
+                        micBtn.onmousedown = function(e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            toggleVoice(micBtn, container);
+                        };
+
+                        micBtn.onclick = function(e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                        };
+
+                        container.appendChild(micBtn);
+
+                        const ta = container.querySelector('textarea');
+                        if (ta) {
+                            ta.style.paddingRight = '84px';
+                        }
+                    }
+                }
+
+                function checkAll() {
+                    setupMicInDoc(document);
+                    if (window.parent && window.parent.document) {
+                        setupMicInDoc(window.parent.document);
+                    }
+                }
+
+                setInterval(checkAll, 400);
+                checkAll();
+            })();
+            </script>
+            """,
+            height=0,
+        )
 
     # ══════════════════════════════════════════════════════════════════════════
     # TAB 2: INCIDENT OPERATIONS (PHASE 2)
@@ -171,7 +371,7 @@ def render_modern_view(backend: Optional[BackendServiceProtocol], backend_error:
         # Indexing Action Button
         if st.button("📥 Index Document into Vector Store", type="primary", key="modern_btn_index", use_container_width=True):
             if uploaded_pdf is None:
-                st.error("⚠️ Please select a PDF file to upload before indexing.")
+                st.error("⚠️ Please choose a PDF file before clicking Index Document.")
             elif backend is None:
                 st.error("❌ Cannot index: Backend service is unavailable.")
             else:
@@ -211,12 +411,22 @@ def render_modern_view(backend: Optional[BackendServiceProtocol], backend_error:
                             st.session_state["cached_chunks"] = []
                         st.session_state["cached_chunks"].extend(clean_chunks)
 
-                        st.session_state.indexed_docs[uploaded_pdf.name] = {
+                        doc_meta = {
                             "document_id": clean_chunks[0].document_id if clean_chunks else "unknown",
+                            "filename": uploaded_pdf.name,
+                            "page_count": max(c.page for c in clean_chunks) if clean_chunks else 1,
                             "chunks_count": len(clean_chunks),
                             "equipment_model": equipment_model.strip() or None,
                             "synthetic": is_synthetic,
                         }
+                        st.session_state.indexed_docs[uploaded_pdf.name] = doc_meta
+                        session_id = st.session_state.get("session_id", "default_user")
+                        save_indexed_document(
+                            session_id=session_id,
+                            doc_id=doc_meta["document_id"],
+                            meta=doc_meta,
+                            chunks=clean_chunks,
+                        )
 
                         if summary.chunks_failed > 0:
                             status.update(label=f"⚠️ Indexing finished with {summary.chunks_failed} errors", state="error")
@@ -239,25 +449,77 @@ def render_modern_view(backend: Optional[BackendServiceProtocol], backend_error:
 
         # List of indexed docs
         if st.session_state.indexed_docs:
-            for fname, meta in st.session_state.indexed_docs.items():
+            col_hdr1, col_hdr2 = st.columns([7, 3])
+            with col_hdr2:
+                if st.button("🗑️ Remove All & Clear Cache", key="btn_remove_all_docs", help="Purge all documents from vector store and clear all caches", use_container_width=True):
+                    session_id = st.session_state.get("session_id", "default_user")
+                    for fname_del, meta_del in list(st.session_state.indexed_docs.items()):
+                        doc_id_del = meta_del.get("document_id") if isinstance(meta_del, dict) else None
+                        if backend is not None and hasattr(backend, "delete_document"):
+                            try:
+                                backend.delete_document(filename=fname_del, document_id=doc_id_del)
+                            except Exception:
+                                pass
+                        delete_indexed_document(session_id, fname_del)
+                        if doc_id_del:
+                            delete_indexed_document(session_id, doc_id_del)
+                    st.session_state.indexed_docs = {}
+                    st.session_state.cached_chunks = []
+                    st.session_state.last_indexing_summary = None
+                    st.toast("Purged all documents from vector store and cleared all caches.", icon="🗑️")
+                    st.rerun()
+
+            for fname, meta in list(st.session_state.indexed_docs.items()):
+                if not isinstance(meta, dict):
+                    continue
+                doc_id = meta.get("document_id") or meta.get("doc_id") or "unknown"
+                chunks_num = meta.get("chunks_count", meta.get("chunk_count", 0))
+                eq_model = meta.get("equipment_model")
+
                 with st.container():
-                    st.markdown(
-                        f"""
-                        <div style="background:#1e293b; padding:0.75rem 1rem; border-radius:8px; border:1px solid #334155; margin-bottom:0.5rem; display:flex; justify-content:space-between; align-items:center;">
-                            <div>
-                                <span style="font-weight:600; color:#f8fafc;">📄 {fname}</span>
-                                <span style="font-size:0.8rem; color:#94a3b8; margin-left:0.5rem;">({meta['document_id']})</span>
-                            </div>
-                            <div>
-                                <span style="background:rgba(59,130,246,0.2); color:#60a5fa; padding:0.2rem 0.6rem; border-radius:4px; font-size:0.8rem;">
-                                    {meta['chunks_count']} chunks
-                                </span>
-                                {'<span style="background:rgba(16,185,129,0.2); color:#34d399; padding:0.2rem 0.6rem; border-radius:4px; font-size:0.8rem; margin-left:0.3rem;">Model: ' + meta["equipment_model"] + '</span>' if meta["equipment_model"] else ''}
-                            </div>
-                        </div>
-                        """,
-                        unsafe_allow_html=True,
-                    )
+                    d_cols = st.columns([5, 3, 2])
+                    with d_cols[0]:
+                        st.markdown(
+                            f"**📄 {fname}**  \n"
+                            f"<span style='color:#94a3b8; font-size:0.8rem;'>Document ID: <code>{doc_id}</code></span>",
+                            unsafe_allow_html=True,
+                        )
+                    with d_cols[1]:
+                        badge_html = f"<span style='background:rgba(59,130,246,0.2); color:#60a5fa; padding:0.25rem 0.6rem; border-radius:4px; font-size:0.82rem; font-weight:600;'>{chunks_num} chunks</span>"
+                        if eq_model:
+                            badge_html += f" <span style='background:rgba(16,185,129,0.2); color:#34d399; padding:0.25rem 0.6rem; border-radius:4px; font-size:0.82rem; font-weight:600;'>Model: {eq_model}</span>"
+                        st.markdown(badge_html, unsafe_allow_html=True)
+                    with d_cols[2]:
+                        if st.button("🗑️ Remove", key=f"btn_remove_doc_{fname}", help=f"Remove '{fname}' from persistent knowledge base and clear cache", use_container_width=True):
+                            session_id = st.session_state.get("session_id", "default_user")
+                            # 1. Purge from vector store / backend
+                            if backend is not None and hasattr(backend, "delete_document"):
+                                try:
+                                    backend.delete_document(filename=fname, document_id=doc_id)
+                                except Exception as be_err:
+                                    logger.warning("Could not delete from backend: %s", be_err)
+
+                            # 2. Purge from SQLite persistence
+                            delete_indexed_document(session_id, fname)
+                            delete_indexed_document(session_id, doc_id)
+
+                            # 3. Purge from session state dictionary
+                            if fname in st.session_state.indexed_docs:
+                                del st.session_state.indexed_docs[fname]
+
+                            # 4. Purge from cached chunks in session state
+                            if st.session_state.get("cached_chunks"):
+                                st.session_state.cached_chunks = [
+                                    c for c in st.session_state.cached_chunks
+                                    if c.filename != fname and c.document_id != doc_id
+                                ]
+
+                            # 5. Clear last indexing summary cache
+                            st.session_state.last_indexing_summary = None
+
+                            st.toast(f"Removed '{fname}' from knowledge base and cleared all caches.", icon="🗑️")
+                            st.rerun()
+                    st.markdown("<hr style='margin: 0.35rem 0 0.75rem 0; border: 0; border-top: 1px solid #334155;'>", unsafe_allow_html=True)
         else:
             st.info("No documents indexed yet. Upload a PDF manual above to begin.")
 
@@ -293,7 +555,7 @@ def render_modern_view(backend: Optional[BackendServiceProtocol], backend_error:
 
         with v_col2:
             if st.session_state.get("vision_mode_active") and st.session_state.get("vision_image_path"):
-                st.image(st.session_state.vision_image_path, caption=f"Inspection Target: {st.session_state.get('vision_image_name')}", use_container_width=True)
+                _render_image(st.session_state.vision_image_path, caption=f"Inspection Target: {st.session_state.get('vision_image_name')}")
             else:
                 st.markdown(
                     """
@@ -328,10 +590,10 @@ def render_modern_view(backend: Optional[BackendServiceProtocol], backend_error:
                 p_col1, p_col2 = st.columns(2)
                 with p_col1:
                     overlay_img = draw_user_region_overlay(img_path, box_pct)
-                    st.image(overlay_img, caption="Original with User-Selected Region", use_container_width=True)
+                    _render_image(overlay_img, caption="Original with User-Selected Region")
                 with p_col2:
                     crop_file, crop_id, crop_px = crop_image_region(img_path, box_pct)
-                    st.image(str(crop_file), caption=f"Crop Preview ({crop_id}: X=[{crop_px[0]}..{crop_px[2]}], Y=[{crop_px[1]}..{crop_px[3]}])", use_container_width=True)
+                    _render_image(str(crop_file), caption=f"Crop Preview ({crop_id}: X=[{crop_px[0]}..{crop_px[2]}], Y=[{crop_px[1]}..{crop_px[3]}])")
 
                 # Inspect button
                 if st.button("🔍 Inspect User-Selected Region", type="primary", key="btn_inspect_crop", use_container_width=True):
@@ -484,17 +746,11 @@ def render_modern_view(backend: Optional[BackendServiceProtocol], backend_error:
                 symptom_data[sym_clean] = symptom_data.get(sym_clean, 0) + 1
 
             if not symptom_data:
-                symptom_data = {
-                    "Bearing Overheating": 4,
-                    "Pump Cavitation / Vibration": 3,
-                    "Hydraulic Pressure Drop": 3,
-                    "S7-1200 CPU Stop Alarm": 2,
-                    "Pneumatic Valve Leak": 1,
-                }
-
-            import pandas as pd
-            df_sym = pd.DataFrame(list(symptom_data.items()), columns=["Symptom", "Reported Count"]).sort_values("Reported Count", ascending=False)
-            st.bar_chart(df_sym.set_index("Symptom"), color="#38bdf8")
+                st.info("ℹ️ No reported incident symptoms yet. Open an incident in the **🚨 Incident Operations** tab to track symptoms.")
+            else:
+                import pandas as pd
+                df_sym = pd.DataFrame(list(symptom_data.items()), columns=["Symptom", "Reported Count"]).sort_values("Reported Count", ascending=False)
+                st.bar_chart(df_sym.set_index("Symptom"), color="#38bdf8")
 
         with c_chart2:
             st.markdown("#### 🏭 Incidents by Equipment Model")
@@ -506,39 +762,40 @@ def render_modern_view(backend: Optional[BackendServiceProtocol], backend_error:
                 eq_data[eq] = eq_data.get(eq, 0) + 1
 
             if not eq_data:
-                eq_data = {
-                    "Siemens S7-1200 CPU": 4,
-                    "Rexroth A10VSO": 4,
-                    "Centrifugal Pump P-101": 3,
-                    "Compressor Cell X1": 2,
-                }
-
-            df_eq = pd.DataFrame(list(eq_data.items()), columns=["Equipment", "Active Tickets"]).sort_values("Active Tickets", ascending=False)
-            st.bar_chart(df_eq.set_index("Equipment"), color="#818cf8")
+                st.info("ℹ️ No equipment-tagged incidents yet. Register equipment models on incidents to track machine failure distribution.")
+            else:
+                import pandas as pd
+                df_eq = pd.DataFrame(list(eq_data.items()), columns=["Equipment", "Active Tickets"]).sort_values("Active Tickets", ascending=False)
+                st.bar_chart(df_eq.set_index("Equipment"), color="#818cf8")
 
         st.markdown("---")
         st.markdown("#### 🔍 Frequently Consulted SOP Topics")
-        st.caption("Top search themes queried by shop-floor technicians.")
-        top_topics = [
-            ("Siemens S7-1200 LED Status Codes", "Diagnostic quick reference for solid vs flashing RUN/STOP and ERROR indicators", "Section 3.0 / Manual p.112"),
-            ("Rexroth A10VSO Overhaul & Gland Packing", "Safety shutdown sequence, casing drainage, and torque specs for axial piston pump", "Overhaul Rev1 p.12"),
-            ("Compressor Operating Authorization", "Permitted personnel safety checks and PPE verification", "SOP-01 p.1"),
-            ("High Bearing Temperature Escalation", "Thermal cutoff thresholds and supervisor sign-off requirements", "Escalation Policy p.2"),
-        ]
-        t_cols = st.columns(2)
-        for idx, (title, desc, ref) in enumerate(top_topics):
-            col_target = t_cols[idx % 2]
-            with col_target:
-                st.markdown(
-                    f"""
-                    <div style="background:#1e293b; border:1px solid #334155; border-radius:10px; padding:0.85rem 1rem; margin-bottom:0.75rem;">
-                        <div style="font-weight:700; color:#f8fafc; font-size:0.92rem;">📑 {title}</div>
-                        <div style="font-size:0.82rem; color:#94a3b8; margin:0.3rem 0;">{desc}</div>
-                        <div style="font-size:0.75rem; color:#38bdf8; font-weight:600;">Reference: {ref}</div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
+        st.caption("Documentation topics available in the persistent local vector store.")
+        indexed_docs = st.session_state.get("indexed_docs", {})
+        if indexed_docs:
+            t_cols = st.columns(2)
+            idx = 0
+            for fname, meta in indexed_docs.items():
+                if not isinstance(meta, dict):
+                    continue
+                eq_m = meta.get("equipment_model") or "General Equipment"
+                chunks_n = meta.get("chunks_count", meta.get("chunk_count", 0))
+                pages_n = meta.get("page_count", 1)
+                col_target = t_cols[idx % 2]
+                idx += 1
+                with col_target:
+                    st.markdown(
+                        f"""
+                        <div style="background:#1e293b; border:1px solid #334155; border-radius:10px; padding:0.85rem 1rem; margin-bottom:0.75rem;">
+                            <div style="font-weight:700; color:#f8fafc; font-size:0.92rem;">📑 {fname}</div>
+                            <div style="font-size:0.82rem; color:#94a3b8; margin:0.3rem 0;">Target Model: <strong>{eq_m}</strong> | {chunks_n} chunks across {pages_n} pages</div>
+                            <div style="font-size:0.75rem; color:#38bdf8; font-weight:600;">Status: Indexed in Persistent Vector Store</div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
+        else:
+            st.info("ℹ️ No manuals or SOPs indexed yet. Upload documents in the **📚 Knowledge Base & Indexing** tab to populate reference documentation topics.")
 
     # ══════════════════════════════════════════════════════════════════════════
     # TAB 6: SYSTEM & MODEL CONTROL
@@ -584,14 +841,17 @@ def render_modern_view(backend: Optional[BackendServiceProtocol], backend_error:
 
 
 def _process_query(query: str, backend) -> None:
-    """Processes user query and appends assistant answer."""
+    """Processes user query and appends assistant answer with SQLite persistence."""
+    session_id = st.session_state.get("session_id", "default_user")
     vision_active = (
         st.session_state.get("vision_mode_active")
         and st.session_state.get("vision_image_path") is not None
     )
     image_name = st.session_state.get("vision_image_name") if vision_active else None
 
-    st.session_state.chat_history.append({"role": "user", "content": query, "image_name": image_name})
+    user_msg = {"role": "user", "content": query, "image_name": image_name}
+    st.session_state.chat_history.append(user_msg)
+    save_chat_message(session_id, user_msg)
 
     if backend is None:
         ans = Answer(text="Cannot process query: Backend service is unavailable.", evidence=[], insufficient_evidence=True)
@@ -610,6 +870,8 @@ def _process_query(query: str, backend) -> None:
         except Exception as e:
             ans = Answer(text=f"❌ Backend query error: {e}", evidence=[], insufficient_evidence=True)
 
-    st.session_state.chat_history.append({"role": "assistant", "answer": ans, "image_name": image_name})
+    asst_msg = {"role": "assistant", "answer": ans, "image_name": image_name}
+    st.session_state.chat_history.append(asst_msg)
+    save_chat_message(session_id, asst_msg)
     st.rerun()
 
