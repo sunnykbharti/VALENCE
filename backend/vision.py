@@ -19,8 +19,30 @@ from urllib.error import URLError
 from urllib.request import Request, urlopen
 
 from config import is_loopback_url
+from contracts import CropInspectionResult
 
 logger = logging.getLogger("valence.vision")
+
+CROP_INSPECTION_SYSTEM_PROMPT = (
+    "You are an air-gapped industrial visual inspection assistant analyzing a user-selected cropped region of equipment.\n"
+    "Report strictly visible factual evidence with explicit uncertainty:\n"
+    "1. Transcribe clearly legible printed text, nameplates, model numbers, or serial tags.\n"
+    "2. Record visible indicator states (color and whether solid, flashing, or unlit).\n"
+    "3. Report short factual descriptions of visible physical components in this crop.\n"
+    "NEGATIVE CONSTRAINTS:\n"
+    "- If text is blurry, truncated, or unreadable, explicitly state that text is illegible. Do NOT guess or autocomplete model numbers or error codes.\n"
+    "- Do NOT infer electrical correctness, operational safety, or root cause.\n"
+    "- Do NOT infer component identity from appearance alone if ambiguous.\n"
+    "- Do NOT infer presence or absence of any feature outside this selected crop.\n"
+    "Return your response strictly as a JSON object with this exact structure:\n"
+    "{\n"
+    '  "legible_text": ["exact string 1", "exact string 2"],\n'
+    '  "unreadable_text_noted": false,\n'
+    '  "indicator_states": [{"name": "indicator", "color": "color", "state": "solid/flashing/unlit"}],\n'
+    '  "tentative_observations": ["Brief factual visual observation"],\n'
+    '  "follow_up_needed": "Specific request if key information is missing/unclear, else null"\n'
+    "}"
+)
 
 VISION_SYSTEM_PROMPT = (
     "You are an air-gapped industrial visual inspection assistant. "
@@ -117,7 +139,7 @@ class LocalVisionEngine:
     def __init__(
         self,
         base_url: str = "http://localhost:11434",
-        model: str = "llama3.2-vision:11b",
+        model: str = "qwen2.5vl:7b",
         vision_fn: Optional[Callable[[Path, str], VisualInterpretation]] = None,
     ) -> None:
         if not is_loopback_url(base_url):
@@ -253,4 +275,125 @@ class LocalVisionEngine:
             raw_description=raw_text,
             vision_available=True,
         )
+
+    def inspect_crop(
+        self,
+        crop_path: Union[str, Path],
+        crop_id: str,
+        crop_coords: tuple[int, int, int, int],
+        user_question: Optional[str] = None,
+    ) -> CropInspectionResult:
+        """Inspects a user-selected crop using local vision model under negative constraints.
+
+        Args:
+            crop_path: Path to cropped image file.
+            crop_id: Application-controlled deterministic crop ID.
+            crop_coords: (px1, py1, px2, py2) in original image.
+            user_question: Optional context or user question.
+
+        Returns:
+            Structured CropInspectionResult with explicit uncertainty.
+        """
+        p = Path(crop_path)
+        b64_image, _ = _read_and_encode_image(p)
+
+        is_avail, reason = self.check_availability()
+        if not is_avail:
+            logger.warning("Local vision model unavailable for crop inspection: %s", reason)
+            return CropInspectionResult(
+                crop_id=crop_id,
+                crop_coordinates=crop_coords,
+                legible_text=[],
+                unreadable_text_noted=True,
+                indicator_states=[],
+                tentative_observations=[f"Visual inspection unavailable ({reason})."],
+                follow_up_needed=f"Local vision model unavailable: {reason}",
+                raw_description="",
+            )
+
+        endpoint = f"{self.base_url}/api/generate"
+        inquiry = user_question.strip() if user_question and user_question.strip() else "Inspect this region for text, labels, and indicators."
+        payload = {
+            "model": self.model,
+            "prompt": f"User query: {inquiry}\nProvide strictly factual JSON observations.",
+            "system": CROP_INSPECTION_SYSTEM_PROMPT,
+            "images": [b64_image],
+            "stream": False,
+            "options": {
+                "temperature": 0.0,
+            },
+        }
+
+        try:
+            req_data = json.dumps(payload).encode("utf-8")
+            req = Request(endpoint, data=req_data, headers={"Content-Type": "application/json"})
+            with urlopen(req, timeout=60.0) as resp:
+                if resp.status == 200:
+                    res_json = json.loads(resp.read().decode("utf-8"))
+                    raw_text = str(res_json.get("response", "")).strip()
+                    return self._parse_crop_response(raw_text, crop_id, crop_coords)
+                raise RuntimeError(f"Ollama returned HTTP {resp.status}")
+        except Exception as e:
+            logger.warning("VLM crop inspection failed on %s: %s", crop_id, e)
+            return CropInspectionResult(
+                crop_id=crop_id,
+                crop_coordinates=crop_coords,
+                legible_text=[],
+                unreadable_text_noted=True,
+                indicator_states=[],
+                tentative_observations=[f"Model inspection failed: {e}"],
+                follow_up_needed="VLM inference error occurred. Check local Ollama daemon.",
+                raw_description=f"Error: {e}",
+            )
+
+    def _parse_crop_response(
+        self,
+        raw_text: str,
+        crop_id: str,
+        crop_coords: tuple[int, int, int, int],
+    ) -> CropInspectionResult:
+        """Parses structured JSON response from local VLM."""
+        # Try JSON extraction from code blocks or raw string
+        clean_text = raw_text
+        match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", raw_text, re.DOTALL)
+        if match:
+            clean_text = match.group(1)
+        else:
+            brace_match = re.search(r"(\{.*\})", raw_text, re.DOTALL)
+            if brace_match:
+                clean_text = brace_match.group(1)
+
+        try:
+            data = json.loads(clean_text)
+            legible_text = [str(t).strip() for t in data.get("legible_text", []) if str(t).strip()]
+            unreadable = bool(data.get("unreadable_text_noted", False))
+            indicators = [i for i in data.get("indicator_states", []) if isinstance(i, dict)]
+            observations = [str(o).strip() for o in data.get("tentative_observations", []) if str(o).strip()]
+            follow_up = data.get("follow_up_needed")
+            if follow_up is not None:
+                follow_up = str(follow_up).strip() or None
+
+            return CropInspectionResult(
+                crop_id=crop_id,
+                crop_coordinates=crop_coords,
+                legible_text=legible_text,
+                unreadable_text_noted=unreadable,
+                indicator_states=indicators,
+                tentative_observations=observations,
+                follow_up_needed=follow_up,
+                raw_description=raw_text,
+            )
+        except Exception:
+            # Fallback parsing on non-JSON response
+            lines = [line.strip("- *• ") for line in raw_text.splitlines() if line.strip()]
+            return CropInspectionResult(
+                crop_id=crop_id,
+                crop_coordinates=crop_coords,
+                legible_text=[],
+                unreadable_text_noted=True,
+                indicator_states=[],
+                tentative_observations=lines[:4] or ["Inspection completed."],
+                follow_up_needed=None,
+                raw_description=raw_text,
+            )
 

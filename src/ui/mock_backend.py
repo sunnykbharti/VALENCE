@@ -6,7 +6,7 @@ import re
 from pathlib import Path
 from typing import Optional, Sequence, Union
 
-from contracts import Answer, Chunk, Evidence, IndexingSummary
+from contracts import Answer, Chunk, CropInspectionResult, Evidence, IndexingSummary
 
 # Supported image extensions (validated at the UI layer; checked here for parity)
 _SUPPORTED_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".tif", ".webp"}
@@ -358,3 +358,54 @@ class MockBackendService:
         ]
         base_answer.observations = observations
         return base_answer
+
+    def inspect_crop(
+        self,
+        image_path: Union[str, Path],
+        box_pct: tuple[float, float, float, float],
+        user_question: Optional[str] = None,
+    ) -> tuple[CropInspectionResult, Path]:
+        """Mock implementation of user-selected crop inspection."""
+        from src.utils.image_crop import crop_image_region
+
+        crop_path, crop_id, crop_coords = crop_image_region(image_path, box_pct)
+        p = Path(image_path)
+        profile_key = _classify_image_by_filename(p.name)
+
+        if "blurry" in profile_key:
+            res = CropInspectionResult(
+                crop_id=crop_id,
+                crop_coordinates=crop_coords,
+                legible_text=[],
+                unreadable_text_noted=True,
+                indicator_states=[],
+                tentative_observations=["[MOCK] Text in selected region is blurry and illegible."],
+                follow_up_needed="Please attach a closer, sharper photograph of the target component.",
+                raw_description="[MOCK] Blurry crop.",
+            )
+        elif "unknown" in profile_key:
+            res = CropInspectionResult(
+                crop_id=crop_id,
+                crop_coordinates=crop_coords,
+                legible_text=[],
+                unreadable_text_noted=False,
+                indicator_states=[],
+                tentative_observations=["[MOCK] Unidentified industrial housing. No Siemens S7-1200 markings present."],
+                follow_up_needed="Target component is not present in this crop.",
+                raw_description="[MOCK] Unknown component crop.",
+            )
+        else:
+            res = CropInspectionResult(
+                crop_id=crop_id,
+                crop_coordinates=crop_coords,
+                legible_text=["S7-1200", "RUN/STOP"],
+                unreadable_text_noted=False,
+                indicator_states=[{"name": "RUN/STOP", "color": "yellow", "state": "solid"}],
+                tentative_observations=[
+                    "[MOCK] Four circular indicators visible in crop.",
+                    "[MOCK] Solid yellow indicator observed on RUN/STOP channel.",
+                ],
+                follow_up_needed=None,
+                raw_description="[MOCK] Normal crop inspection.",
+            )
+        return res, crop_path

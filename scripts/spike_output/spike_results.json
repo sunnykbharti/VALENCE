@@ -1,0 +1,131 @@
+[
+  {
+    "test_id": "case_1_visible",
+    "test_name": "Case 1: Clearly Visible Target",
+    "target": "LED status indicators",
+    "image_path": "tests/fixtures/synthetic_plc_leds_normal.png",
+    "image_dimensions": "640x400",
+    "exact_prompt": "Locate the 'LED status indicators' on the front panel of the Siemens S7-1200 PLC in this image.\nReturn your output strictly as a JSON object in this format:\nIf visible and localized:\n{\n  \"found\": true,\n  \"status\": \"candidate_found\",\n  \"label\": \"LED status indicators\",\n  \"box_2d\": [x1, y1, x2, y2],\n  \"format\": \"[x1, y1, x2, y2] in 0-1000 scale where x1 < x2 and y1 < y2\",\n  \"observation\": \"Brief factual visual description\"\n}\nIf not clearly visible, obscured, or absent:\n{\n  \"found\": false,\n  \"status\": \"needs_better_view\",\n  \"reason\": \"Specific reason why target cannot be localized\",\n  \"requested_view\": \"Description of closer angle or view needed\"\n}",
+    "raw_response": "```json\n{\n  \"found\": true,\n  \"status\": \"candidate_found\",\n  \"label\": \"LED status indicators\",\n  \"box_2d\": [145, 206, 789, 270],\n  \"format\": \"[145, 206, 789, 270] in 0-1000 scale where x1 < x2 and y1 < y2\",\n  \"observation\": \"The image shows four circular indicators, two green and two gray, representing the LED status indicators on the front panel of the Siemens S7-1200 PLC.\"\n}\n```",
+    "parsed_result": {
+      "status": "candidate_found",
+      "reason": null,
+      "requested_view": null,
+      "raw_json": {
+        "found": true,
+        "status": "candidate_found",
+        "label": "LED status indicators",
+        "box_2d": [
+          145,
+          206,
+          789,
+          270
+        ],
+        "format": "[145, 206, 789, 270] in 0-1000 scale where x1 < x2 and y1 < y2",
+        "observation": "The image shows four circular indicators, two green and two gray, representing the LED status indicators on the front panel of the Siemens S7-1200 PLC."
+      },
+      "bounding_box_norm": [
+        0.145,
+        0.206,
+        0.789,
+        0.27
+      ],
+      "bounding_box_pixels": [
+        93,
+        82,
+        505,
+        108
+      ],
+      "coordinate_system": "normalized_0_1000 (x1, y1, x2, y2)",
+      "observation": "The image shows four circular indicators, two green and two gray, representing the LED status indicators on the front panel of the Siemens S7-1200 PLC."
+    },
+    "overlay_path": "scripts/spike_output/case_1_visible_overlay.png",
+    "duration_seconds": 14.74,
+    "memory_before_mb": 2082.1,
+    "memory_after_mb": 2026.6
+  },
+  {
+    "test_id": "case_2_angled",
+    "test_name": "Case 2: Same Target from Another Angle / Module View",
+    "target": "LED status indicators",
+    "image_path": "tests/fixtures/synthetic_ambiguous_model.png",
+    "image_dimensions": "640x400",
+    "exact_prompt": "Locate the 'LED status indicators' on the Siemens S7-1200 PLC module in this photo.\nReturn your output strictly as a JSON object in this format:\nIf visible and localized:\n{\n  \"found\": true,\n  \"status\": \"candidate_found\",\n  \"label\": \"LED status indicators\",\n  \"box_2d\": [x1, y1, x2, y2],\n  \"format\": \"[x1, y1, x2, y2] in 0-1000 scale where x1 < x2 and y1 < y2\",\n  \"observation\": \"Brief factual visual description\"\n}\nIf not clearly visible, obscured, or absent:\n{\n  \"found\": false,\n  \"status\": \"needs_better_view\",\n  \"reason\": \"Specific reason why target cannot be localized\",\n  \"requested_view\": \"Description of closer angle or view needed\"\n}",
+    "raw_response": "{\n  \"found\": false,\n  \"status\": \"needs_better_view\",\n  \"reason\": \"The image does not show the actual PLC module, only a synthetic text representation.\",\n  \"requested_view\": \"A clearer image of the actual Siemens S7-1200 PLC module with the LED status indicators visible.\"\n}",
+    "parsed_result": {
+      "status": "needs_better_view",
+      "reason": "The image does not show the actual PLC module, only a synthetic text representation.",
+      "requested_view": "A clearer image of the actual Siemens S7-1200 PLC module with the LED status indicators visible.",
+      "raw_json": {
+        "found": false,
+        "status": "needs_better_view",
+        "reason": "The image does not show the actual PLC module, only a synthetic text representation.",
+        "requested_view": "A clearer image of the actual Siemens S7-1200 PLC module with the LED status indicators visible."
+      },
+      "bounding_box_norm": null,
+      "bounding_box_pixels": null,
+      "coordinate_system": "n/a",
+      "observation": ""
+    },
+    "overlay_path": null,
+    "duration_seconds": 7.42,
+    "memory_before_mb": 2026.8,
+    "memory_after_mb": 2082.6
+  },
+  {
+    "test_id": "case_3_absent",
+    "test_name": "Case 3: Target Absent",
+    "target": "Siemens S7-1200 RUN/STOP LED",
+    "image_path": "tests/fixtures/synthetic_unknown_equipment.png",
+    "image_dimensions": "640x400",
+    "exact_prompt": "Locate the 'Siemens S7-1200 RUN/STOP LED' in this equipment photo.\nIf the target is NOT present on this machine, you MUST report found: false.\nReturn your output strictly as a JSON object in this format:\n{\n  \"found\": false,\n  \"status\": \"not_found\",\n  \"reason\": \"Target component is not present on this equipment\",\n  \"requested_view\": \"Photograph of Siemens S7-1200 PLC required\"\n}\nOnly if the Siemens S7-1200 RUN/STOP LED is genuinely visible:\n{\n  \"found\": true,\n  \"status\": \"candidate_found\",\n  \"label\": \"Siemens S7-1200 RUN/STOP LED\",\n  \"box_2d\": [x1, y1, x2, y2],\n  \"format\": \"[x1, y1, x2, y2] in 0-1000 scale\",\n  \"observation\": \"Description\"\n}",
+    "raw_response": "{\n  \"found\": false,\n  \"status\": \"not_found\",\n  \"reason\": \"Target component is not present on this equipment\",\n  \"requested_view\": \"Photograph of Siemens S7-1200 PLC required\"\n}",
+    "parsed_result": {
+      "status": "not_found",
+      "reason": "Target component is not present on this equipment",
+      "requested_view": "Photograph of Siemens S7-1200 PLC required",
+      "raw_json": {
+        "found": false,
+        "status": "not_found",
+        "reason": "Target component is not present on this equipment",
+        "requested_view": "Photograph of Siemens S7-1200 PLC required"
+      },
+      "bounding_box_norm": null,
+      "bounding_box_pixels": null,
+      "coordinate_system": "n/a",
+      "observation": ""
+    },
+    "overlay_path": null,
+    "duration_seconds": 4.67,
+    "memory_before_mb": 2082.2,
+    "memory_after_mb": 2098.6
+  },
+  {
+    "test_id": "case_4_blurry",
+    "test_name": "Case 4: Target Obscured / Blurry",
+    "target": "PLC RUN/STOP diagnostic LED",
+    "image_path": "tests/fixtures/synthetic_blurry_panel.png",
+    "image_dimensions": "640x400",
+    "exact_prompt": "Locate the 'PLC RUN/STOP diagnostic LED' in this inspection photograph.\nIf the image resolution, blur, lighting, or focus is inadequate to identify the exact LED, report found: false.\nReturn your output strictly as a JSON object in this format:\nIf blur/resolution prevents reliable localization:\n{\n  \"found\": false,\n  \"status\": \"needs_better_view\",\n  \"reason\": \"Image quality, blur, or glare prevents localization\",\n  \"requested_view\": \"Close-up in-focus photo with adequate lighting\"\n}\nIf unmistakably localized:\n{\n  \"found\": true,\n  \"status\": \"candidate_found\",\n  \"label\": \"PLC RUN/STOP diagnostic LED\",\n  \"box_2d\": [x1, y1, x2, y2],\n  \"format\": \"[x1, y1, x2, y2] in 0-1000 scale\",\n  \"observation\": \"Description\"\n}",
+    "raw_response": "{\n  \"found\": false,\n  \"status\": \"needs_better_view\",\n  \"reason\": \"Image quality, blur, or glare prevents localization\",\n  \"requested_view\": \"Close-up in-focus photo with adequate lighting\"\n}",
+    "parsed_result": {
+      "status": "needs_better_view",
+      "reason": "Image quality, blur, or glare prevents localization",
+      "requested_view": "Close-up in-focus photo with adequate lighting",
+      "raw_json": {
+        "found": false,
+        "status": "needs_better_view",
+        "reason": "Image quality, blur, or glare prevents localization",
+        "requested_view": "Close-up in-focus photo with adequate lighting"
+      },
+      "bounding_box_norm": null,
+      "bounding_box_pixels": null,
+      "coordinate_system": "n/a",
+      "observation": ""
+    },
+    "overlay_path": null,
+    "duration_seconds": 4.36,
+    "memory_before_mb": 2100.6,
+    "memory_after_mb": 2127.3
+  }
+]

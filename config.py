@@ -78,7 +78,7 @@ def load_config() -> RuntimeConfig:
 
     ollama_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
     llm_model = os.getenv("OLLAMA_LLM_MODEL", "llama3.2:3b")
-    vlm_model = os.getenv("OLLAMA_VLM_MODEL", "llama3.2-vision:11b")
+    vlm_model = os.getenv("OLLAMA_VLM_MODEL", "qwen2.5vl:7b")
     embed_dir = Path(os.getenv("EMBEDDING_MODEL_DIR", "models/all-MiniLM-L6-v2"))
     index_dir = Path(os.getenv("QDRANT_STORAGE_PATH", "data/qdrant_storage"))
     collection = os.getenv("QDRANT_COLLECTION_NAME", "industrial_docs")

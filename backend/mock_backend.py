@@ -11,7 +11,7 @@ import re
 from pathlib import Path
 from typing import Optional, Sequence, Union
 
-from contracts import Answer, Chunk, Evidence, IndexingSummary
+from contracts import Answer, Chunk, CropInspectionResult, Evidence, IndexingSummary
 
 
 _STOPWORDS = {
@@ -294,6 +294,31 @@ class MockBackend:
             insufficient_evidence=False,
             observations=observations,
         )
+
+    def inspect_crop(
+        self,
+        image_path: Union[str, Path],
+        box_pct: tuple[float, float, float, float],
+        user_question: Optional[str] = None,
+    ) -> tuple[CropInspectionResult, Path]:
+        """Mock implementation of user-selected crop inspection."""
+        from src.utils.image_crop import crop_image_region
+
+        crop_path, crop_id, crop_coords = crop_image_region(image_path, box_pct)
+        res = CropInspectionResult(
+            crop_id=crop_id,
+            crop_coordinates=crop_coords,
+            legible_text=["S7-1200", "RUN/STOP"],
+            unreadable_text_noted=False,
+            indicator_states=[{"name": "RUN/STOP", "color": "yellow", "state": "solid"}],
+            tentative_observations=[
+                "[MOCK] Four circular indicators visible in crop.",
+                "[MOCK] Solid yellow indicator observed on RUN/STOP channel.",
+            ],
+            follow_up_needed=None,
+            raw_description="[MOCK] Normal crop inspection.",
+        )
+        return res, crop_path
 
     def evaluate_applicability(
         self,

@@ -12,10 +12,11 @@ from pathlib import Path
 from typing import Optional
 
 import streamlit as st
-from contracts import Answer, IndexingSummary
+from contracts import Answer, CropInspectionResult, IndexingSummary
 from src.services import BackendServiceProtocol, create_ingestor
 from src.ui.components.message_view import render_assistant_message, render_user_message
 from src.ui.components.incident_panel import render_incident_controls
+from src.utils.image_crop import crop_image_region, draw_user_region_overlay
 
 logger = logging.getLogger(__name__)
 
@@ -278,8 +279,8 @@ def render_modern_view(backend: Optional[BackendServiceProtocol], backend_error:
                     st.rerun()
 
         with v_col2:
-            if st.session_state.get("vision_mode_active") and uploaded_image:
-                st.image(uploaded_image, caption=f"Inspection Target: {uploaded_image.name}", use_container_width=True)
+            if st.session_state.get("vision_mode_active") and st.session_state.get("vision_image_path"):
+                st.image(st.session_state.vision_image_path, caption=f"Inspection Target: {st.session_state.get('vision_image_name')}", use_container_width=True)
             else:
                 st.markdown(
                     """
@@ -289,6 +290,112 @@ def render_modern_view(backend: Optional[BackendServiceProtocol], backend_error:
                     """,
                     unsafe_allow_html=True,
                 )
+
+        # ── POINT, INSPECT, ASK (User-Selected Region Inspection) ───────────────
+        if st.session_state.get("vision_mode_active") and st.session_state.get("vision_image_path"):
+            st.divider()
+            st.markdown("### 🎯 Point, Inspect, Ask: User-Selected Region")
+            st.caption(
+                "Select a rectangular inspection sub-region. The local model describes visible features, "
+                "which are confirmed before retrieving SOP documentation. (Never calls region 'AI-detected')."
+            )
+
+            # Coordinate sliders for user-selected region
+            sc1, sc2 = st.columns(2)
+            with sc1:
+                h_range = st.slider("Horizontal Crop Window (%)", 0, 100, (10, 90), step=1, key="crop_h_slider")
+            with sc2:
+                v_range = st.slider("Vertical Crop Window (%)", 0, 100, (15, 85), step=1, key="crop_v_slider")
+
+            box_pct = (float(h_range[0]), float(v_range[0]), float(h_range[1]), float(v_range[1]))
+            img_path = st.session_state.vision_image_path
+
+            try:
+                # Previews
+                p_col1, p_col2 = st.columns(2)
+                with p_col1:
+                    overlay_img = draw_user_region_overlay(img_path, box_pct)
+                    st.image(overlay_img, caption="Original with User-Selected Region", use_container_width=True)
+                with p_col2:
+                    crop_file, crop_id, crop_px = crop_image_region(img_path, box_pct)
+                    st.image(str(crop_file), caption=f"Crop Preview ({crop_id}: X=[{crop_px[0]}..{crop_px[2]}], Y=[{crop_px[1]}..{crop_px[3]}])", use_container_width=True)
+
+                # Inspect button
+                if st.button("🔍 Inspect User-Selected Region", type="primary", key="btn_inspect_crop", use_container_width=True):
+                    with st.spinner("Local vision model analyzing selected crop region..."):
+                        if hasattr(backend, "inspect_crop"):
+                            res, c_path = backend.inspect_crop(img_path, box_pct)
+                            st.session_state.crop_result = res
+                            st.session_state.crop_path = str(c_path)
+                            st.session_state.confirmed_terms = " ".join(res.legible_text)
+                            st.session_state.crop_evidence = []
+                        else:
+                            st.warning("Active backend does not support crop inspection.")
+
+                # Structured Results & Confirmation
+                crop_res: Optional[CropInspectionResult] = st.session_state.get("crop_result")
+                if crop_res is not None:
+                    st.markdown("---")
+                    res_c1, res_c2 = st.columns(2)
+
+                    # 1. User-Confirmed Information
+                    with res_c1:
+                        st.markdown("#### 1. ✍️ User-Confirmed Information")
+                        st.caption("Verify or edit detected text before running documentary retrieval.")
+                        confirmed_input = st.text_input(
+                            "Verified Component / Indicator Terms",
+                            value=st.session_state.get("confirmed_terms", " ".join(crop_res.legible_text)),
+                            key="user_confirmed_terms_input",
+                        )
+                        st.session_state.confirmed_terms = confirmed_input
+
+                        if st.button("📖 Retrieve Documentary Evidence for Region", key="btn_retrieve_region", use_container_width=True):
+                            with st.spinner("Searching manuals and SOPs..."):
+                                if backend and confirmed_input.strip():
+                                    ev = backend.retrieve(confirmed_input.strip(), top_k=3)
+                                    st.session_state.crop_evidence = ev
+
+                    # 2. Tentative Visual Observations
+                    with res_c2:
+                        st.markdown("#### 2. 👁️ Tentative Visual Observations")
+                        if crop_res.tentative_observations:
+                            for obs in crop_res.tentative_observations:
+                                st.markdown(f"- {obs}")
+                        else:
+                            st.write("No distinct physical features noted.")
+
+                        if crop_res.indicator_states:
+                            st.markdown("**Indicator States:**")
+                            for ind in crop_res.indicator_states:
+                                name = ind.get("name", "Indicator")
+                                col = ind.get("color", "unknown")
+                                stt = ind.get("state", "unknown")
+                                st.markdown(f"- **{name}**: `{col}` ({stt})")
+
+                        if crop_res.unreadable_text_noted:
+                            st.warning("⚠️ **Uncertainty Alert**: Blurry, obscured, or illegible text noted in this crop. Do not assume unverified values.")
+
+                    # 3. Retrieved Documentary Evidence & 4. Follow-Up
+                    d_c1, d_c2 = st.columns(2)
+                    with d_c1:
+                        st.markdown("#### 3. 📚 Retrieved Documentary Evidence")
+                        crop_ev = st.session_state.get("crop_evidence", [])
+                        if crop_ev:
+                            for e in crop_ev:
+                                with st.expander(f"📄 Citation: `[{e.source_id}]` — Page {e.chunk.page}"):
+                                    st.markdown(f"**Document**: `{e.chunk.filename}`")
+                                    st.markdown(f"> {e.chunk.text}")
+                        else:
+                            st.info("No documentary evidence retrieved yet. Click 'Retrieve Documentary Evidence' above.")
+
+                    with d_c2:
+                        st.markdown("#### 4. ❓ Unresolved Questions & Follow-Up")
+                        if crop_res.follow_up_needed:
+                            st.warning(f"**Follow-Up Request**: {crop_res.follow_up_needed}")
+                        else:
+                            st.success("No missing visual details reported by inspection model.")
+            except Exception as e:
+                st.error(f"Region selection error: {e}")
 
     # ══════════════════════════════════════════════════════════════════════════
     # TAB 4: SYSTEM & MODEL CONTROL

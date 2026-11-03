@@ -215,6 +215,28 @@ class RealBackend:
         base_answer.observations = visual_result.observations
         return base_answer
 
+    def inspect_crop(
+        self,
+        image_path: Union[str, Path],
+        box_pct: tuple[float, float, float, float],
+        user_question: Optional[str] = None,
+    ) -> tuple[CropInspectionResult, Path]:
+        """Crops user-selected image region and performs local visual inspection.
+
+        Returns:
+            (CropInspectionResult, cropped_image_path)
+        """
+        from src.utils.image_crop import crop_image_region
+
+        crop_path, crop_id, crop_coords = crop_image_region(image_path, box_pct)
+        result = self.vision_engine.inspect_crop(
+            crop_path=crop_path,
+            crop_id=crop_id,
+            crop_coords=crop_coords,
+            user_question=user_question,
+        )
+        return result, crop_path
+
     def evaluate_applicability(
         self,
         incident: Incident,

@@ -94,6 +94,30 @@ class Answer:
         return cited_ids.issubset(available_ids)
 
 
+@dataclass
+class CropInspectionResult:
+    """Structured result of local visual crop inspection (Member B to Member A).
+
+    Attributes:
+        crop_id: Application-controlled deterministic identifier (e.g. 'img_crop_a1b2c3d4').
+        crop_coordinates: Pixel bounding box (x1, y1, x2, y2) in original image coordinates.
+        legible_text: Transcribed clearly legible text strings, labels, or codes.
+        unreadable_text_noted: True if blurry, obscured, or illegible text was encountered.
+        indicator_states: List of visible indicator descriptions (e.g. [{"color": "yellow", "state": "solid"}]).
+        tentative_observations: Concise, factual visual observations (uncertainty explicit).
+        follow_up_needed: Specific request for follow-up view or confirmation, if information is missing.
+        raw_description: Full response from local vision model.
+    """
+    crop_id: str
+    crop_coordinates: tuple[int, int, int, int]
+    legible_text: list[str] = field(default_factory=list)
+    unreadable_text_noted: bool = False
+    indicator_states: list[dict[str, str]] = field(default_factory=list)
+    tentative_observations: list[str] = field(default_factory=list)
+    follow_up_needed: Optional[str] = None
+    raw_description: str = ""
+
+
 @dataclass(frozen=True)
 class IndexingSummary:
     """Explicit summary of indexing operations.
