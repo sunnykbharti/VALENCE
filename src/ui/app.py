@@ -8,10 +8,17 @@ All document indexing, chat sessions, and inspection states are shared across bo
 
 from __future__ import annotations
 
+import importlib
 import logging
 from typing import Optional
 
 import streamlit as st
+
+import src.ui.styles.theme as theme_mod
+import src.ui.views.modern_view as modern_view_mod
+# Auto-reload view and theme modules so edits take effect immediately on browser refresh
+importlib.reload(theme_mod)
+importlib.reload(modern_view_mod)
 
 from src.services import BackendServiceProtocol
 from src.ui.state import get_or_create_backend, init_session_state
